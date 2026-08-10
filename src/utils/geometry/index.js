@@ -1,6 +1,6 @@
 import box from "./box"
 import segment from "./segment"
-import { cornerPoints } from "./primitives"
+import path from "./path"
 
 // Which geometry an element type uses, and the element-level helpers built on
 // top of it.
@@ -19,17 +19,18 @@ import { cornerPoints } from "./primitives"
 //   rotationOf(props)                  degrees about the centre
 //   bounds(props)                      { left, top, right, bottom }
 //   corners(props)                     visual footprint, rotation included
+//   unrotatedCorners(props)            footprint ignoring rotation
 //   center(props)                      the pivot
 //   translate(props, dx, dy)           → properties patch
 //   mapIntoBox(props, oldBox, newBox)  → properties patch (group resize)
 //   rotate(props, pivot, degrees)      → properties patch
 //
-// Adding a kind is adding a file here plus a row below. `path` (points[], for
-// freehand ink) is the next one, and it is what will really exercise this
-// contract — box and segment agree on four of the seven methods, which is not
-// enough to know the shape is right.
+// Adding a kind is adding a file here plus a row below. `path` was the third,
+// and it did what it was supposed to: box and segment had agreed on four of the
+// methods, and path shares none of that implementation — only `translate` came
+// through in recognisable form.
 
-const KINDS = { box, segment }
+const KINDS = { box, segment, path }
 
 // The one place "which geometry does this type use" is declared. When the
 // element-type registry lands this moves onto the element definition itself.
@@ -42,14 +43,15 @@ const KIND_BY_TYPE = {
   oval:      "box",
   text:      "box",
   line:      "segment",
+  path:      "path",
 }
 
 // Unknown types fall back to box: a new element type renders and transforms
 // sensibly before anyone remembers to register its kind.
 export const geometryOf = (el) => KINDS[KIND_BY_TYPE[el.type] ?? "box"]
 
-// The two stored corners — enough to bound anything unrotated.
-export const rawCorners = (el) => cornerPoints(el.properties)
+// The footprint with rotation ignored — enough to bound anything unrotated.
+export const rawCorners = (el) => geometryOf(el).unrotatedCorners(el.properties)
 
 // Every corner in world space, rotation included.
 export const cornersOf = (el) => geometryOf(el).corners(el.properties)

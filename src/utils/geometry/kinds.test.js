@@ -1,12 +1,33 @@
 import { describe, it, expect } from "vitest"
 import box from "./box"
 import segment from "./segment"
+import path from "./path"
 import { geometryOf } from "./index"
 
-// The kind contract. Every method here is what a `path` kind will have to
-// implement too, so these double as the specification for adding one.
+// The kind contract, asserted against every registered kind. Kind-specific
+// behaviour lives in box/segment/path's own test files; this file is the
+// specification any future kind must satisfy.
 
 const props = (startX, startY, endX, endY, extra = {}) => ({ startX, startY, endX, endY, ...extra })
+
+// Each kind stores its geometry differently, so the shared-contract block needs
+// a per-kind way to build "a shape from this point to that one" and to read back
+// where those two ends ended up. Everything else is asserted through `bounds`,
+// which is storage-agnostic by definition.
+const FIXTURES = {
+  box: {
+    make: (sx, sy, ex, ey) => props(sx, sy, ex, ey),
+    ends: (p) => [{ x: p.startX, y: p.startY }, { x: p.endX, y: p.endY }],
+  },
+  segment: {
+    make: (sx, sy, ex, ey) => props(sx, sy, ex, ey),
+    ends: (p) => [{ x: p.startX, y: p.startY }, { x: p.endX, y: p.endY }],
+  },
+  path: {
+    make: (sx, sy, ex, ey) => ({ points: [{ x: sx, y: sy }, { x: ex, y: ey }] }),
+    ends: (p) => [p.points[0], p.points[p.points.length - 1]],
+  },
+}
 
 describe("geometryOf", () => {
   it("maps the box-shaped types to the box kind", () => {
@@ -19,6 +40,10 @@ describe("geometryOf", () => {
     expect(geometryOf({ type: "line" })).toBe(segment)
   })
 
+  it("maps path to the path kind", () => {
+    expect(geometryOf({ type: "path" })).toBe(path)
+  })
+
   it("falls back to box for an unregistered type", () => {
     // A new element type should transform sensibly before anyone remembers to
     // register its kind.
@@ -28,50 +53,78 @@ describe("geometryOf", () => {
 })
 
 describe("the shared contract", () => {
-  for (const [name, kind] of [["box", box], ["segment", segment]]) {
+  for (const [name, kind] of [["box", box], ["segment", segment], ["path", path]]) {
+    const { make, ends } = FIXTURES[name]
+    // Every method returns a PATCH, so applying it is how you see the result.
+    const apply = (p, patch) => ({ ...p, ...patch })
+
     describe(name, () => {
-      it("implements every method", () => {
-        for (const m of ["rotationOf", "bounds", "corners", "center", "translate", "mapIntoBox", "rotate"]) {
+      it("implements every member", () => {
+        for (const m of ["rotationOf", "bounds", "corners", "unrotatedCorners", "center", "translate", "mapIntoBox", "rotate"]) {
           expect(typeof kind[m]).toBe("function")
         }
         expect(typeof kind.storesRotation).toBe("boolean")
       })
 
-      it("bounds normalises corner order", () => {
-        expect(kind.bounds(props(100, 50, 0, 0)))
+      it("bounds is independent of the order the ends were stored in", () => {
+        expect(kind.bounds(make(100, 50, 0, 0)))
+          .toEqual({ left: 0, top: 0, right: 100, bottom: 50 })
+        expect(kind.bounds(make(0, 0, 100, 50)))
           .toEqual({ left: 0, top: 0, right: 100, bottom: 50 })
       })
 
-      it("center averages the stored corners", () => {
-        expect(kind.center(props(0, 0, 100, 50))).toEqual({ x: 50, y: 25 })
+      it("center is the middle of the bounds", () => {
+        expect(kind.center(make(0, 0, 100, 50))).toEqual({ x: 50, y: 25 })
       })
 
-      it("translate offsets both corners and returns a patch", () => {
-        expect(kind.translate(props(0, 0, 100, 50), 10, -5))
-          .toEqual({ startX: 10, startY: -5, endX: 110, endY: 45 })
+      it("corners cover the bounds", () => {
+        const p = make(0, 0, 100, 50)
+        const xs = kind.corners(p).map(c => c.x)
+        const ys = kind.corners(p).map(c => c.y)
+        expect(Math.min(...xs)).toBe(0)
+        expect(Math.max(...xs)).toBe(100)
+        expect(Math.min(...ys)).toBe(0)
+        expect(Math.max(...ys)).toBe(50)
+      })
+
+      it("translate moves the whole shape", () => {
+        const p = make(0, 0, 100, 50)
+        expect(kind.bounds(apply(p, kind.translate(p, 10, -5))))
+          .toEqual({ left: 10, top: -5, right: 110, bottom: 45 })
       })
 
       it("translate does not mutate its input", () => {
-        const p = props(0, 0, 100, 50)
+        const p = make(0, 0, 100, 50)
+        const before = JSON.parse(JSON.stringify(p))
         kind.translate(p, 10, 10)
-        expect(p).toEqual(props(0, 0, 100, 50))
+        expect(p).toEqual(before)
       })
 
       it("mapIntoBox scales proportionally into the new group box", () => {
+        const p = make(0, 0, 50, 50)
         const oldBox = { left: 0, top: 0, right: 100, bottom: 100 }
         const newBox = { left: 0, top: 0, right: 200, bottom: 200 }
-        expect(kind.mapIntoBox(props(0, 0, 50, 50), oldBox, newBox))
-          .toEqual({ startX: 0, startY: 0, endX: 100, endY: 100 })
+        expect(kind.bounds(apply(p, kind.mapIntoBox(p, oldBox, newBox))))
+          .toEqual({ left: 0, top: 0, right: 100, bottom: 100 })
       })
 
-      it("mapIntoBox preserves stored corner order", () => {
-        // Mapping raw (not normalised) corners is what keeps a segment pointing
-        // the same way through a group resize.
+      it("mapIntoBox preserves which end is which", () => {
+        // Mapping raw (never normalised) coordinates is what keeps a segment
+        // pointing the same way — and a stroke drawn the same direction —
+        // through a group resize.
+        const p = make(100, 100, 0, 0)
         const oldBox = { left: 0, top: 0, right: 100, bottom: 100 }
         const newBox = { left: 0, top: 0, right: 200, bottom: 200 }
-        const out = kind.mapIntoBox(props(100, 100, 0, 0), oldBox, newBox)
-        expect(out.startX).toBeGreaterThan(out.endX)
-        expect(out.startY).toBeGreaterThan(out.endY)
+        const [first, last] = ends(apply(p, kind.mapIntoBox(p, oldBox, newBox)))
+        expect(first.x).toBeGreaterThan(last.x)
+        expect(first.y).toBeGreaterThan(last.y)
+      })
+
+      it("rotate does not mutate its input", () => {
+        const p = make(0, 0, 100, 50)
+        const before = JSON.parse(JSON.stringify(p))
+        kind.rotate(p, { x: 0, y: 0 }, 45)
+        expect(p).toEqual(before)
       })
     })
   }

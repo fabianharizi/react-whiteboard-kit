@@ -13,6 +13,7 @@ import useMoveTool from './utils/tools/useMoveTool';
 import useShapeTool from './utils/tools/useShapeTool';
 import useLineTool from './utils/tools/useLineTool';
 import useTextTool from './utils/tools/useTextTool';
+import usePenTool from './utils/tools/usePenTool';
 import useShortcuts from './utils/hooks/useShortcuts';
 import useCommands from './utils/hooks/useCommands';
 import useContextMenu from './utils/hooks/useContextMenu';
@@ -101,6 +102,15 @@ export default function App(){
   useTextTool(
     boardRef,
     activeTool === 'text',
+    toWorld,
+    enablePreview,
+    disablePreview,
+    addElements,
+    setActiveTool
+  )
+  usePenTool(
+    boardRef,
+    activeTool === 'path',
     toWorld,
     enablePreview,
     disablePreview,

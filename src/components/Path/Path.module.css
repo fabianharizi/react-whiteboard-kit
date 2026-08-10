@@ -1,0 +1,20 @@
+/* The svg is a positioning frame at the stroke's bounding box. Ink may overflow
+   it slightly (half a stroke width at the extremes, and the smoothing curve near
+   the edges) and still renders and hit-tests, so the frame needs no padding. The
+   root ignores pointer events — only the invisible fat hit path is clickable. */
+.path{
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: var(--width);
+  height: var(--height);
+  overflow: visible;
+  pointer-events: none;
+  opacity: var(--opacity);
+}
+
+/* `stroke`, not `all` — a stroke drawn as a closed loop must not turn its
+   interior into a click target. */
+.hit{
+  pointer-events: stroke;
+}

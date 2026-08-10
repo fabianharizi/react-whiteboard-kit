@@ -23,12 +23,13 @@ That has a practical payoff: any element type you can render as a DOM node — a
 - **Command registry** — every verb declared once as `{ id, label, shortcut, enabled, run }`. Shortcuts, the zoom bar and the context menu all bind to the same declaration; no surface contains behavior.
 - **Context menu** — right-click, with different menus for empty canvas, a single element (keyed by element type) and a multi-selection. Nested submenus, viewport-edge flipping, keyboard navigation.
 - **Properties panel** — schema-driven live editing of the selected element's geometry and style, including a font picker and connector routing controls.
-- **Element types** — rectangle, oval, line, text.
+- **Element types** — rectangle, oval, line, text, and freehand ink. Three geometry kinds behind them (corner-box, directed segment, point list), each owning its own bounds/translate/resize/rotate, so a new kind is a new file rather than an edit to every transform.
+- **Freehand pen** — samples coalesced pointer events for sub-frame resolution and renders quadratics through point midpoints, so strokes stay smooth at speed instead of faceting.
 - **Editable text** — double-click to edit in place.
 
 ## Keyboard shortcuts
 
-**Tools** — `V` select · `H` move · `R` rectangle · `O` oval · `L` line · `T` text · hold `Space` to pan momentarily, releasing returns to the previous tool
+**Tools** — `V` select · `H` move · `R` rectangle · `O` oval · `L` line · `T` text · `P` pen · hold `Space` to pan momentarily, releasing returns to the previous tool
 
 **Commands** — `Delete`/`Backspace` delete · `Ctrl+C` copy · `Ctrl+X` cut · `Ctrl+V` paste · `Ctrl+D` duplicate · `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo · `Ctrl+=` / `Ctrl+-` / `Ctrl+0` zoom in / out / reset
 
@@ -52,6 +53,7 @@ npm run dev      # vite dev server
 npm run build    # production build
 npm run preview  # serve the production build
 npm run lint     # eslint
+npm test         # vitest
 ```
 
 ---
@@ -63,6 +65,7 @@ Toward an engine other people can build on:
 - [x] Canvas foundation — camera, DOM elements, multi-select, resize/rotate, properties panel
 - [x] Connector lines with edge binding
 - [x] Command registry, shortcuts, context menu
+- [x] Pluggable geometry kinds + freehand pen, with a unit-test suite over the geometry
 - [ ] **Element-type registry** — one module per type declaring its component, tool, property schema, selection chrome and bindability, so adding a type is adding a file instead of editing six in lockstep
 - [ ] **Embeddability** — drop the global `*`/`body` CSS, container-relative layout instead of `100vw/100vh`, listeners scoped to the board
 - [ ] **`<Whiteboard>` API** — `content`/`onChange`, custom element types, theming
@@ -78,4 +81,4 @@ Toward an engine other people can build on:
 - Elbow routes have no obstacle avoidance.
 - Group resize scales a text element's box, not its font size.
 - No persistence — reloading clears the canvas.
-- No tests.
+- Tests cover the geometry and math modules only; nothing exercises the React components.

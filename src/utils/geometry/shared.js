@@ -19,6 +19,14 @@ export default {
   // The unrotated footprint. Kinds that rotate override this.
   corners: (props) => cornerPoints(props),
 
+  // The footprint with rotation deliberately ignored — what a lone rotated
+  // element's chrome measures, since the chrome carries the rotation itself and
+  // measuring the rotated footprint would apply it twice. Only `box` differs
+  // from `corners` here, but it must be dispatched rather than assumed: the
+  // dispatch layer used to call `cornerPoints` directly, which is a four-corner
+  // assumption a path can't satisfy.
+  unrotatedCorners: (props) => cornerPoints(props),
+
   // → a properties patch.
   translate: (props, dx, dy) => ({
     startX: props.startX + dx, startY: props.startY + dy,

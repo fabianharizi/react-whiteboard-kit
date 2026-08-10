@@ -5,11 +5,18 @@ import { useRef, useEffect } from "react";
 // Callback object  {
 //                    active,
 //                    cursor,
-//                    onDown: (p, setCursor) => {...},
-//                    onMove: (p, setCursor) => {...},
-//                    onUp: (p, setCursor) => {...},
+//                    onDown: (p, setCursor, event) => {...},
+//                    onMove: (p, setCursor, event) => {...},
+//                    onUp: (p, setCursor, event) => {...},
 //                    onClick / onDblClick / onCancel
 //                  }
+//
+// `p` is a flattened snapshot in SCREEN coords — that's what every tool wants,
+// and it's deliberately the whole story for all of them but one. The raw
+// `event` is passed as a third argument for the cases the snapshot can't cover:
+// the pen tool needs `getCoalescedEvents()`, the sub-frame samples the browser
+// batched into a single pointermove, without which fast strokes come out
+// faceted. Reach for the snapshot first; the event is the escape hatch.
 
 // Double-click is SYNTHESIZED from two clicks rather than taken from the native
 // `dblclick` event, and the bookkeeping is module-scoped on purpose: selecting
@@ -64,7 +71,7 @@ export default function usePointer(ref, callback) {
         hasDragged: false,
         target: e.target,
         shiftKey: e.shiftKey,
-    }, setCursor);
+    }, setCursor, e);
   };
 
   // Gets current position when pointer is dragging
@@ -77,7 +84,8 @@ export default function usePointer(ref, callback) {
     if (pointer.current.isDown && e.buttons === 0) {
       latestCallback.current.onUp?.(
         pointer.current = { ...pointer.current, isDown: false },
-        setCursor
+        setCursor,
+        e
       );
       return;
     }
@@ -92,7 +100,7 @@ export default function usePointer(ref, callback) {
         y: e.clientY,
         hasDragged: pointer.current.isDown && Math.hypot(e.clientX - pointer.current.startX, e.clientY - pointer.current.startY) > 4,
         shiftKey: e.shiftKey,
-    }, setCursor)
+    }, setCursor, e)
   };
 
   // Sets isDown to false when pointer is up
@@ -112,7 +120,7 @@ export default function usePointer(ref, callback) {
       pointer.current = {
         ...pointer.current,
         isDown: false
-    }, setCursor)
+    }, setCursor, e)
   };
 
   // Capture can be lost for reasons other than pointerup (element detach, browser

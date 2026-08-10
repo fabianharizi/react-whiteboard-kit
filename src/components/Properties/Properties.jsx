@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import styles from "./Properties.module.css"
 import { resolveLineEndpoints } from "../../utils/methods/lineGeometry"
+import { geometryOf } from "../../utils/geometry"
 import { FONT_FAMILIES, WEIGHTS, fontStack } from "../../utils/methods/fonts"
 import {
   StrokeSolid, StrokeDashed, StrokeDotted,
@@ -29,6 +30,9 @@ const SCHEMA = {
   line:      ["start", "end", "routing", "strokeColor", "strokeWidth", "strokeStyle", "headStart", "headEnd"],
   // `align` is one row holding the horizontal and vertical icon groups.
   text:      ["position", "size", "rotation", "fontFamily", "fontSize", "fontWeight", "fontStyle", "align", "content"],
+  // No `rotation`: a path bakes rotation into its points, so `rotationOf` always
+  // reports 0 and the field would write a property nothing ever reads.
+  path:      ["position", "size", "strokeColor", "strokeWidth", "strokeStyle", "opacity"],
 }
 
 // Mirrors the per-component defaults, so an absent property still shows a value.
@@ -58,6 +62,31 @@ const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0)
 // buttons rather than a labelable input.
 const MULTI_CONTROL = new Set(["pair", "combo", "icons", "iconSelect"])
 
+// Elements that don't store two corners need their box derived and written back
+// differently. `position`/`size` are shared across every box-ish type, so the
+// branch lives here rather than in a per-type field — which is exactly the kind
+// of scattering the element-type registry is meant to remove. When that lands,
+// these should collapse into each type's own schema.
+const isPath = (p) => Array.isArray(p.points)
+const pathBounds = (p) => geometryOf({ type: "path" }).bounds(p)
+
+// Move a path so its bounding box's `edge` (left/top) lands on `v`.
+const movePathTo = (p, edge, v) => {
+  const b = pathBounds(p)
+  const d = v - b[edge]
+  return geometryOf({ type: "path" }).translate(p, edge === "left" ? d : 0, edge === "left" ? 0 : d)
+}
+
+// Scale a path so its bounding box takes on `v` along one axis, anchored at its
+// top-left — the same corner `size` anchors a box at.
+const scalePathTo = (p, axis, v) => {
+  const b = pathBounds(p)
+  const next = axis === "width"
+    ? { ...b, right: b.left + v }
+    : { ...b, bottom: b.top + v }
+  return geometryOf({ type: "path" }).mapIntoBox(p, b, next)
+}
+
 // A "pair" field renders two number inputs on one row. Each part derives its value
 // from the stored corners (`get`) and returns the corner patch to write (`set`),
 // so `position`/`size` stay a single conceptual property in the schema.
@@ -67,11 +96,15 @@ const FIELDS = {
     type: "pair",
     parts: [
       { key: "x", prefix: "X",
-        get: (p) => Math.round(Math.min(num(p.startX), num(p.endX))),
-        set: (p, v) => ({ startX: v, endX: v + Math.abs(num(p.endX) - num(p.startX)) }) },
+        get: (p) => Math.round(isPath(p) ? pathBounds(p).left : Math.min(num(p.startX), num(p.endX))),
+        set: (p, v) => isPath(p)
+          ? movePathTo(p, "left", v)
+          : ({ startX: v, endX: v + Math.abs(num(p.endX) - num(p.startX)) }) },
       { key: "y", prefix: "Y",
-        get: (p) => Math.round(Math.min(num(p.startY), num(p.endY))),
-        set: (p, v) => ({ startY: v, endY: v + Math.abs(num(p.endY) - num(p.startY)) }) },
+        get: (p) => Math.round(isPath(p) ? pathBounds(p).top : Math.min(num(p.startY), num(p.endY))),
+        set: (p, v) => isPath(p)
+          ? movePathTo(p, "top", v)
+          : ({ startY: v, endY: v + Math.abs(num(p.endY) - num(p.startY)) }) },
     ],
   },
 
@@ -80,14 +113,20 @@ const FIELDS = {
     type: "pair",
     parts: [
       { key: "width", prefix: "W", min: 0,
-        get: (p) => Math.round(Math.abs(num(p.endX) - num(p.startX))),
+        get: (p) => Math.round(isPath(p)
+          ? pathBounds(p).right - pathBounds(p).left
+          : Math.abs(num(p.endX) - num(p.startX))),
         set: (p, v) => {
+          if (isPath(p)) return scalePathTo(p, "width", v)
           const x = Math.min(num(p.startX), num(p.endX))
           return { startX: x, endX: x + v }
         } },
       { key: "height", prefix: "H", min: 0,
-        get: (p) => Math.round(Math.abs(num(p.endY) - num(p.startY))),
+        get: (p) => Math.round(isPath(p)
+          ? pathBounds(p).bottom - pathBounds(p).top
+          : Math.abs(num(p.endY) - num(p.startY))),
         set: (p, v) => {
+          if (isPath(p)) return scalePathTo(p, "height", v)
           const y = Math.min(num(p.startY), num(p.endY))
           return { startY: y, endY: y + v }
         } },

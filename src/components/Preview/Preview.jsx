@@ -1,5 +1,6 @@
 import Shape from "../Shape/Shape";
 import Line from "../Line/Line";
+import Path from "../Path/Path";
 import BindPoint from "../BindPoint/BindPoint";
 
 // The drag ghost. All preview render logic lives here, keyed by `mode`; the
@@ -16,16 +17,21 @@ const MODES = {
   oval:      { Component: Shape, props: { type: "oval" },      style: { ...GHOST, fill: "transparent" } },
   line:      { Component: Line,  props: {},                    style: { ...GHOST, headStart: "none", headEnd: "arrow", routing: "straight" } },
   select:    { Component: Shape, props: { type: "rectangle" }, style: { ...GHOST, fill: "#0088aa20" } },  // marquee
+  // Ink previews solid rather than dashed: a dashed freehand stroke reads as a
+  // rendering fault, and the pen's ghost is the stroke itself, not an outline.
+  path:      { Component: Path,  props: {},                    style: { strokeColor: "#0088aaaa", strokeWidth: 2, strokeStyle: "solid" } },
 };
 
-export default function Preview({ mode, startX, startY, endX, endY, anchors }) {
+export default function Preview({ mode, startX, startY, endX, endY, anchors, points }) {
   const spec = MODES[mode];
   if (!spec) return null;                      // unknown mode renders nothing
 
   const { Component, props, style } = spec;
   return (
     <>
-      <Component {...props} properties={{ startX, startY, endX, endY, ...style }} />
+      {/* `points` is carried for the path ghost; the corner-based components
+          ignore an extra prop, so it costs them nothing. */}
+      <Component {...props} properties={{ startX, startY, endX, endY, points, ...style }} />
       {/* Pending bind anchors, in world coords (this renders inside the world
           div). The ghost has already snapped to them, so these confirm exactly
           where each end will attach. */}

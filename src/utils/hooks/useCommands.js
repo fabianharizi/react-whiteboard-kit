@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import UUID from "../methods/UUID";
 import { resolveLineEndpoints } from "../methods/lineGeometry";
+import { geometryOf } from "../geometry";
 
 // The command registry: every app function (verb) declared once as data, so
 // each surface — shortcuts, buttons, future menus / context menu / palette —
@@ -21,6 +22,14 @@ export default function useCommands({ selectedElements, getElement, addElements,
 
   const hasSelection = () => selectedElements.length > 0;
 
+  // Properties are otherwise flat, so a spread is enough — except for a path's
+  // `points`, where a shared array reference would let a later edit reach back
+  // into the clipboard (or vice versa).
+  const cloneProperties = (properties) => ({
+    ...properties,
+    ...(properties.points ? { points: properties.points.map(p => ({ ...p })) } : {}),
+  });
+
   // Type + properties snapshots of the current selection. `source` keeps the
   // copied element's uuid so bindings can be remapped at spawn (fresh uuids are
   // minted then). Line snapshots bake their RESOLVED endpoints and keep a
@@ -33,7 +42,9 @@ export default function useCommands({ selectedElements, getElement, addElements,
       .map(getElement)
       .filter(Boolean)
       .map(el => {
-        if (el.type !== "line") return { type: el.type, source: el.uuid, properties: { ...el.properties } };
+        // A shallow copy leaves array-valued properties (a path's `points`)
+        // aliased between the snapshot and the live element, so clone those.
+        if (el.type !== "line") return { type: el.type, source: el.uuid, properties: cloneProperties(el.properties) };
 
         const r = resolveLineEndpoints(el.properties, getElement);
         const keep = (binding) => (binding && selected.has(binding.uuid)) ? binding : null;
@@ -65,10 +76,9 @@ export default function useCommands({ selectedElements, getElement, addElements,
       uuid: minted.get(item.source),
       properties: {
         ...item.properties,
-        startX: item.properties.startX + 20,
-        startY: item.properties.startY + 20,
-        endX: item.properties.endX + 20,
-        endY: item.properties.endY + 20,
+        // Each kind offsets itself. This used to add 20 to four hardcoded
+        // coordinates, which a path (which has none) turned into NaN.
+        ...geometryOf(item).translate(item.properties, 20, 20),
         ...(item.type === "line" ? {
           startBinding: remap(item.properties.startBinding),
           endBinding: remap(item.properties.endBinding),

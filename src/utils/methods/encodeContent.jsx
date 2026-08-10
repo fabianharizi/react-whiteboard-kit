@@ -1,6 +1,7 @@
 import Shape from "../../components/Shape/Shape"
 import Line from "../../components/Line/Line"
 import Text from "../../components/Text/Text"
+import Path from "../../components/Path/Path"
 import { resolveLineEndpoints } from "./lineGeometry"
 
 // Pure content → JSX (extracted from useContent so any consumer can encode
@@ -47,6 +48,14 @@ export default function encodeContent(content, selectedElements = [], editing = 
           selected={selected.has(el.uuid)}
           properties={el.properties}
           editing={editing?.uuid === el.uuid ? editing : null}
+        />
+
+      case "path":
+        return <Path
+          key={el.uuid}
+          uuid={el.uuid}
+          selected={selected.has(el.uuid)}
+          properties={el.properties}
         />
     }
   })
