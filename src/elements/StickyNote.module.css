@@ -1,0 +1,25 @@
+/* Positioning reads the frame's CSS variables, exactly like the built-in
+   elements — the engine sets --x/--y/--width/--height/--rotation, the element's
+   own stylesheet consumes them. Everything below the position block is this
+   element's own look. */
+.sticky{
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: var(--width);
+  height: var(--height);
+
+  /* Rotation is about the element's center (default transform-origin). */
+  rotate: var(--rotation, 0deg);
+
+  box-sizing: border-box;
+  padding: 12px;
+  background-color: var(--color);
+  color: #33312a;
+  border-radius: 2px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  font-size: 14px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow: hidden;
+}

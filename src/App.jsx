@@ -21,11 +21,27 @@ import { bindTargetAt } from './utils/methods/hitTest';
 
 const SELECTION_TOOLS = ['select', 'move'];
 
+// DEMO seed: one instance of the example `sticky` custom element (src/elements/
+// sticky.jsx), so the extension path renders on load without a creation tool yet
+// wired for it. Select it to see its inline color/text fields in the panel;
+// move/resize/rotate work via the "box" geometry it reused. Safe to delete.
+const DEMO_CONTENT = [
+  {
+    type: "sticky",
+    uuid: "demo-sticky",
+    properties: {
+      startX: 160, startY: 140, endX: 380, endY: 300,
+      color: "#ffe066",
+      text: "I'm a custom element.\n\nDefined with defineElement —\nno engine edits, just a\ncomponent + a definition.",
+    },
+  },
+];
+
 export default function App(){
   const boardRef = useRef(null);
 
   const [activeTool, setActiveTool] = useState("select");
-  const {content, selectedElements, getElement, addElements, selectElements, updateElements, deleteElements, undo, redo, canUndo, canRedo} = useContent([]);
+  const {content, selectedElements, getElement, addElements, selectElements, updateElements, deleteElements, undo, redo, canUndo, canRedo} = useContent(DEMO_CONTENT);
   const {camera, panBy, zoomTo, toWorld} = useCamera(boardRef);
   const {preview, enablePreview, disablePreview} = usePreview();
 

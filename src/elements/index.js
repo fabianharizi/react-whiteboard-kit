@@ -3,6 +3,7 @@ import oval from "./oval"
 import line from "./line"
 import text from "./text"
 import path from "./path"
+import sticky from "./sticky"
 
 // The element-type registry: the one place that knows the set of types and what
 // each one is. Everything that used to switch on `el.type` reads from here
@@ -13,7 +14,10 @@ import path from "./path"
 // so this list is also the contract's proof: if one of them couldn't be a plain
 // definition, the shape would be wrong.
 
-const DEFINITIONS = [rectangle, oval, line, text, path]
+// `sticky` is an EXAMPLE custom element (see sticky.jsx) kept alongside the
+// built-ins to prove the extension path — it registers through the exact same
+// list. Remove it (and its demo seed in App) once the public API supersedes it.
+const DEFINITIONS = [rectangle, oval, line, text, path, sticky]
 
 const BY_TYPE = new Map(DEFINITIONS.map(def => [def.type, def]))
 

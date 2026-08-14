@@ -44,6 +44,7 @@ React 19 + Vite. No state library, no router, CSS Modules. The guiding rule: **U
 - **`useContent`** — elements plus selection, behind one internal writer with a live ref mirror so several writes in a tick each see the previous one's result. All operations are **plural-only** — a single element is a one-element array. Selection is a uuid list and the only source of truth; elements carry no `selected` flag, which is why a history snapshot can just be content.
 - **`useCommands`** — the command registry above.
 - **Tools** are hooks composing `usePointer`, all mounted unconditionally and gated by an `active` boolean.
+- **`elements/`** — the element-type registry. Each type is a `defineElement({ type, render, geometry, schema, defaults, bindable, tool })` module, and the built-ins register through the same call a consumer will. Rendering (`encodeContent`) and the property schema dispatch through it today. A box-shaped type positions by spreading the engine-computed `boxFrame` (it never touches coordinates or the `data-uuid` hit-testing hook); lines and ink self-position, since their box is the rendered route. Adding a type is adding a definition.
 
 ## Running locally
 
@@ -66,7 +67,7 @@ Toward an engine other people can build on:
 - [x] Connector lines with edge binding
 - [x] Command registry, shortcuts, context menu
 - [x] Pluggable geometry kinds + freehand pen, with a unit-test suite over the geometry
-- [ ] **Element-type registry** — one module per type declaring its component, tool, property schema, selection chrome and bindability, so adding a type is adding a file instead of editing six in lockstep
+- [~] **Element-type registry** *(in progress)* — every type is a `defineElement({...})` module in `src/elements`, registered through the same call a consumer will use, so the built-ins dogfood the extension API. Rendering and the property schema — including inline, element-supplied fields — dispatch through it today; geometry-kind, bindability, the toolbar and the connector special-cases are being moved onto the definitions next. The `sticky` note is a worked example of a custom type added with no engine edits.
 - [ ] **Embeddability** — drop the global `*`/`body` CSS, container-relative layout instead of `100vw/100vh`, listeners scoped to the board
 - [ ] **`<Whiteboard>` API** — `content`/`onChange`, custom element types, theming
 - [ ] **Packaging** — Vite library mode, exports map, React as a peer dependency, a license
