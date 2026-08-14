@@ -1,13 +1,12 @@
-import Shape from "../../components/Shape/Shape"
-import Line from "../../components/Line/Line"
-import Text from "../../components/Text/Text"
-import Path from "../../components/Path/Path"
-import { resolveLineEndpoints } from "./lineGeometry"
+import { cloneElement } from "react"
+import { elementOf } from "../../elements"
 
-// Pure content → JSX (extracted from useContent so any consumer can encode
-// without instantiating a second content state). Lines are the one type whose
-// stored properties aren't render-ready: bound endpoints resolve here against
-// the same content being encoded, so a line follows its targets by construction.
+// Pure content → JSX. Each element's definition owns its own render (component,
+// props, positioning frame); this just looks the definition up and calls it, so
+// adding a type never touches this file. Lines are the one type whose stored
+// properties aren't render-ready — their definition resolves bound endpoints
+// against `lookup`, the same content being encoded, so a line follows its
+// targets by construction.
 //
 // `selectedElements` is the uuid list from useContent — the single source of
 // truth for selection. Elements don't store a `selected` flag; it's derived here
@@ -22,41 +21,16 @@ export default function encodeContent(content, selectedElements = [], editing = 
   const selected = new Set(selectedElements)
 
   return content.map(el => {
-    switch (el.type) {
-      case "rectangle":
-      case "oval":
-        return <Shape
-          key={el.uuid}
-          uuid={el.uuid}
-          selected={selected.has(el.uuid)}
-          type={el.type}
-          properties={el.properties}
-        />
+    const def = elementOf(el)
+    if (!def) return null                      // unknown type renders nothing
 
-      case "line":
-        return <Line
-          key={el.uuid}
-          uuid={el.uuid}
-          selected={selected.has(el.uuid)}
-          properties={{ ...el.properties, ...resolveLineEndpoints(el.properties, lookup) }}
-        />
+    const node = def.render(el, {
+      selected: selected.has(el.uuid),
+      editing: editing?.uuid === el.uuid ? editing : null,
+      lookup,
+    })
 
-      case "text":
-        return <Text
-          key={el.uuid}
-          uuid={el.uuid}
-          selected={selected.has(el.uuid)}
-          properties={el.properties}
-          editing={editing?.uuid === el.uuid ? editing : null}
-        />
-
-      case "path":
-        return <Path
-          key={el.uuid}
-          uuid={el.uuid}
-          selected={selected.has(el.uuid)}
-          properties={el.properties}
-        />
-    }
+    // The definition returns a bare element; the key is the engine's concern.
+    return node ? cloneElement(node, { key: el.uuid }) : null
   })
 }

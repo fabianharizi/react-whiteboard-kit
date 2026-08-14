@@ -7,6 +7,7 @@ import {
 import styles from "./Properties.module.css"
 import { resolveLineEndpoints } from "../../utils/methods/lineGeometry"
 import { geometryOf } from "../../utils/geometry"
+import { schemaOf } from "../../elements"
 import { FONT_FAMILIES, WEIGHTS, fontStack } from "../../utils/methods/fonts"
 import {
   StrokeSolid, StrokeDashed, StrokeDotted,
@@ -14,9 +15,10 @@ import {
   RouteStraight, RouteCurved, RouteElbow,
 } from "./icons"
 
-// Which properties each element type exposes, in display order.
-// Only properties the components actually render are listed:
-//  - `borderRadius` is ignored by ovals (.oval hardcodes border-radius: 100%)
+// Which properties each element type exposes, and in what order, now lives on
+// the element definitions (schemaOf, from the registry) — this panel no longer
+// knows the set of types. A schema entry is either a built-in field NAME below
+// or an inline field DEFINITION object; resolveField handles both.
 //
 // Geometry note: elements store two corners (startX, startY, endX, endY) in
 // WORLD coords. Shapes and text expose a derived position/size box; lines
@@ -24,16 +26,6 @@ import {
 // A bound line endpoint displays its RESOLVED (glued) position; typing into
 // either of its fields bakes both coords and detaches that end — predictable,
 // instead of numbers that fight the resolver.
-const SCHEMA = {
-  rectangle: ["position", "size", "rotation", "fill", "strokeColor", "strokeWidth", "strokeStyle", "borderRadius", "opacity"],
-  oval:      ["position", "size", "rotation", "fill", "strokeColor", "strokeWidth", "strokeStyle", "opacity"],
-  line:      ["start", "end", "routing", "strokeColor", "strokeWidth", "strokeStyle", "headStart", "headEnd"],
-  // `align` is one row holding the horizontal and vertical icon groups.
-  text:      ["position", "size", "rotation", "fontFamily", "fontSize", "fontWeight", "fontStyle", "align", "content"],
-  // No `rotation`: a path bakes rotation into its points, so `rotationOf` always
-  // reports 0 and the field would write a property nothing ever reads.
-  path:      ["position", "size", "strokeColor", "strokeWidth", "strokeStyle", "opacity"],
-}
 
 // Mirrors the per-component defaults, so an absent property still shows a value.
 const DEFAULTS = {
@@ -407,8 +399,19 @@ function IconGroup({ value, options, label, onCommit }) {
   )
 }
 
-function Field({ name, properties, onPatch }) {
-  const field = FIELDS[name]
+// A schema entry is either a built-in field NAME (resolved against the FIELDS
+// catalog) or an inline field DEFINITION object carrying its own
+// { key, label, type, ... }. The inline form is how a custom element type
+// contributes a control the panel never shipped with — the same field renderers
+// (color, number, select, ...), driven by a definition the element supplies.
+function resolveField(entry) {
+  return typeof entry === "string"
+    ? { name: entry, field: FIELDS[entry] }
+    : { name: entry.key, field: entry }
+}
+
+function Field({ entry, properties, onPatch }) {
+  const { name, field } = resolveField(entry)
 
   // Composite row: render the named sub-fields side by side. Recurses, so a
   // combo can hold any field type (both of today's are icon groups).
@@ -416,7 +419,7 @@ function Field({ name, properties, onPatch }) {
     return (
       <div className={styles.combo}>
         {field.fields.map((sub) => (
-          <Field key={sub} name={sub} properties={properties} onPatch={onPatch} />
+          <Field key={resolveField(sub).name} entry={sub} properties={properties} onPatch={onPatch} />
         ))}
       </div>
     )
@@ -442,8 +445,9 @@ function Field({ name, properties, onPatch }) {
     )
   }
 
-  // Plain fields map 1:1 to a stored property.
-  const value = properties[name] ?? DEFAULTS[name]
+  // Plain fields map 1:1 to a stored property. An inline field may carry its own
+  // `default`; the built-in catalog falls back to DEFAULTS.
+  const value = properties[name] ?? field.default ?? DEFAULTS[name]
   const onChange = (v) => onPatch({ [name]: v })
 
   switch (field.type) {
@@ -526,7 +530,7 @@ export default function Properties({ selectedElements, getElement, updateElement
 
   if (!element) return null
 
-  const fields = SCHEMA[element.type] ?? []
+  const fields = schemaOf(element.type)
 
   return (
     <aside className={styles.properties}>
@@ -537,8 +541,8 @@ export default function Properties({ selectedElements, getElement, updateElement
 
       {/* keyed by uuid so each element gets fresh inputs (no stale NumberInput drafts) */}
       <div className={styles.fields} key={element.uuid}>
-        {fields.map((name) => {
-          const field = FIELDS[name]
+        {fields.map((entry) => {
+          const { name, field } = resolveField(entry)
           // A <label> may only wrap a single labelable control, which rules out
           // multi-control rows and the button-based ones (those carry their own
           // aria-label / title instead).
@@ -548,7 +552,7 @@ export default function Properties({ selectedElements, getElement, updateElement
             <Row key={name} className={styles.field}>
               {field.label && <span className={styles.label}>{field.label}</span>}
               <Field
-                name={name}
+                entry={entry}
                 properties={element.properties}
                 onPatch={(patch) => updateElements([{ uuid: element.uuid, properties: patch }])}
               />

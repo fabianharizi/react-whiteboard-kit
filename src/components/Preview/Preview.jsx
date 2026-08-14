@@ -2,6 +2,7 @@ import Shape from "../Shape/Shape";
 import Line from "../Line/Line";
 import Path from "../Path/Path";
 import BindPoint from "../BindPoint/BindPoint";
+import { boxFrame } from "../../elements/frame";
 
 // The drag ghost. All preview render logic lives here, keyed by `mode`; the
 // usePreview hook only holds the data. Coordinates are world coords — the
@@ -27,11 +28,17 @@ export default function Preview({ mode, startX, startY, endX, endY, anchors, poi
   if (!spec) return null;                      // unknown mode renders nothing
 
   const { Component, props, style } = spec;
+
+  // The ghost's positioning bag, built from the drag coords the same way a real
+  // box element's is — no uuid, so it stays out of hit-testing. Box ghosts
+  // (Shape) spread it; the self-positioning svg ghosts (Line, Path) ignore it.
+  const frame = boxFrame({ startX, startY, endX, endY });
+
   return (
     <>
       {/* `points` is carried for the path ghost; the corner-based components
           ignore an extra prop, so it costs them nothing. */}
-      <Component {...props} properties={{ startX, startY, endX, endY, points, ...style }} />
+      <Component {...props} properties={{ startX, startY, endX, endY, points, ...style }} frame={frame} />
       {/* Pending bind anchors, in world coords (this renders inside the world
           div). The ghost has already snapped to them, so these confirm exactly
           where each end will attach. */}
