@@ -1,5 +1,13 @@
 import styles from "./Shape.module.css"
 
+// A rectangle or an oval — `type` picks the class. The component is dumb: it
+// draws style from `properties` and takes its POSITION from `frame`, the
+// engine-computed bag (--x/--y/--width/--height/--rotation, data-uuid,
+// data-selected) that boxFrame produces. Spreading it is the whole positioning +
+// hit-testing contract; merging `...frame.style` keeps those vars while adding
+// this element's own. The Preview ghost renders through the same component and
+// passes a uuid-less frame, so the box math lives in boxFrame, not here.
+//
 // Properties
 //    fill: css(color)
 //    strokeColor: css(color)
@@ -8,12 +16,8 @@ import styles from "./Shape.module.css"
 //    borderRadius: int
 //    opacity: int
 
-export default function Shape({
-  type,
-  uuid, selected,
-  properties
-}){
-  
+export default function Shape({ type, properties, frame }){
+
   const p = {
     fill: "#ffffff",
     strokeColor: "#ffffff",
@@ -21,34 +25,25 @@ export default function Shape({
     strokeStyle: "solid",
     borderRadius: 0,
     opacity: 1,
-    rotation: 0,
     ...properties
   }
 
-  const coords = {
-    x: Math.min(p.startX, p.endX),
-    y: Math.min(p.startY, p.endY),
-    width: Math.abs(p.endX - p.startX),
-    height: Math.abs(p.endY - p.startY),
-  }
   return(
-    <div className={
-      styles.shape + " " +(
-      (type == "rectangle") ? styles.rectangle : 
-      (type == "oval") ? styles.oval : 
-      (type == "selected") ? styles.selected : ""
-    )} data-uuid={uuid} data-selected={selected} style={{
-      "--x": coords.x + "px",
-      "--y": coords.y + "px",
-      "--width": coords.width + "px",
-      "--height": coords.height + "px",
-      "--fill": p.fill,
-      "--strokeColor": p.strokeColor,
-      "--strokeWidth": p.strokeWidth + "px",
-      "--strokeStyle": p.strokeStyle,
-      "--borderRadius": p.borderRadius + "px",
-      "--opacity": p.opacity,
-      "--rotation": p.rotation + "deg"
-    }}></div>
+    <div
+      className={styles.shape + " " + (
+        (type === "rectangle") ? styles.rectangle :
+        (type === "oval") ? styles.oval : ""
+      )}
+      {...frame}
+      style={{
+        ...frame.style,
+        "--fill": p.fill,
+        "--strokeColor": p.strokeColor,
+        "--strokeWidth": p.strokeWidth + "px",
+        "--strokeStyle": p.strokeStyle,
+        "--borderRadius": p.borderRadius + "px",
+        "--opacity": p.opacity,
+      }}
+    ></div>
   )
 }

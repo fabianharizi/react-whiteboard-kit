@@ -2,6 +2,11 @@ import { useEffect, useRef } from "react"
 import styles from "./Text.module.css"
 import { fontStack } from "../../utils/methods/fonts"
 
+// `frame` is the engine-computed positioning bag (see boxFrame): --x/--y/
+// --width/--height/--rotation plus data-uuid / data-selected. Text spreads it
+// like any box element, then overrides width/height to min-content for a small
+// box — a per-element tweak on top of `...frame.style`.
+//
 // `editing` is the in-place edit session for THIS element, or null:
 //   { onChange(value), onEnd() }
 // It's handed down from Board (which owns the uuid match) so the component
@@ -15,14 +20,13 @@ import { fontStack } from "../../utils/methods/fonts"
 const VERTICAL = { top: "start", middle: "center", bottom: "end" }
 
 export default function Text({
-  uuid, selected,
   properties,
-  editing
+  editing,
+  frame
 }){
 
   const p = {
     content: "Lorem ipsum dolor sit amet",
-    rotation: 0,
     horizontal: "left",
     vertical: "top",
     // Defaults match what the app rendered before font control existed (App.css
@@ -35,12 +39,10 @@ export default function Text({
     ...properties
   }
 
-  const coords = {
-    x: Math.min(p.startX, p.endX),
-    y: Math.min(p.startY, p.endY),
-    width: Math.abs(p.endX - p.startX),
-    height: Math.abs(p.endY - p.startY),
-  }
+  // The stored box, to decide the min-content override. The frame already holds
+  // the same width/height as px; this only needs the raw measure to branch.
+  const width = Math.abs((p.endX ?? 0) - (p.startX ?? 0))
+  const height = Math.abs((p.endY ?? 0) - (p.startY ?? 0))
 
   const editor = useRef(null)
 
@@ -60,12 +62,11 @@ export default function Text({
 
   return(
       <div className={editing ? `${styles.text} ${styles.editing}` : styles.text}
-        data-uuid={uuid} data-selected={selected} style={{
-        "--x": coords.x + "px",
-        "--y": coords.y + "px",
-        "--width": (coords.width > 10) ? coords.width + "px" : "min-content",
-        "--height":(coords.height > 10) ?  coords.height + "px" : "min-content",
-        "--rotation": p.rotation + "deg",
+        {...frame}
+        style={{
+        ...frame.style,
+        "--width": (width > 10) ? width + "px" : "min-content",
+        "--height": (height > 10) ? height + "px" : "min-content",
         "--horizontal": p.horizontal,
         "--vertical": VERTICAL[p.vertical] ?? "start",
         "--fontFamily": fontStack(p.fontFamily),
