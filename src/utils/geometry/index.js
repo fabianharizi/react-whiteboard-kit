@@ -1,6 +1,7 @@
 import box from "./box"
 import segment from "./segment"
 import path from "./path"
+import { definitionOf } from "../../elements"
 
 // Which geometry an element type uses, and the element-level helpers built on
 // top of it.
@@ -25,30 +26,25 @@ import path from "./path"
 //   mapIntoBox(props, oldBox, newBox)  → properties patch (group resize)
 //   rotate(props, pivot, degrees)      → properties patch
 //
-// Adding a kind is adding a file here plus a row below. `path` was the third,
-// and it did what it was supposed to: box and segment had agreed on four of the
-// methods, and path shares none of that implementation — only `translate` came
-// through in recognisable form.
+// Adding a kind is adding a file here plus a line in KINDS below; assigning it
+// to an element type happens on that type's definition (its `geometry` name).
+// `path` was the third, and it did what it was supposed to: box and segment had
+// agreed on four of the methods, and path shares none of that implementation —
+// only `translate` came through in recognisable form.
 
 const KINDS = { box, segment, path }
 
-// The one place "which geometry does this type use" is declared. When the
-// element-type registry lands this moves onto the element definition itself.
+// "Which geometry does this type use" now lives on the element definition (its
+// `geometry` name); this resolves that name to the kind object. The registry is
+// the single declaration — geometry no longer keeps its own type→kind table.
 //
-// Note this is NOT the same question as "can a line bind to it" — hitTest keeps
-// its own BINDABLE set, because a path will be box-shaped but must never be a
-// connector target.
-const KIND_BY_TYPE = {
-  rectangle: "box",
-  oval:      "box",
-  text:      "box",
-  line:      "segment",
-  path:      "path",
-}
-
+// Note this is NOT the same question as "can a line bind to it": bindability is
+// its own flag on the definition (a path is box-shaped but must never be a
+// connector target).
+//
 // Unknown types fall back to box: a new element type renders and transforms
-// sensibly before anyone remembers to register its kind.
-export const geometryOf = (el) => KINDS[KIND_BY_TYPE[el.type] ?? "box"]
+// sensibly before anyone remembers to declare its kind.
+export const geometryOf = (el) => KINDS[definitionOf(el?.type)?.geometry ?? "box"]
 
 // The footprint with rotation ignored — enough to bound anything unrotated.
 export const rawCorners = (el) => geometryOf(el).unrotatedCorners(el.properties)

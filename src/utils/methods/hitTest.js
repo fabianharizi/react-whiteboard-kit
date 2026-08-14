@@ -1,12 +1,13 @@
 import { anchorPoint } from "./lineGeometry"
 import { rotatePoint } from "../geometry/primitives"
 import { geometryOf } from "../geometry"
+import { BINDABLE } from "../../elements"
 
 // Bind-target hit-testing for line endpoints: which element (and which of its
-// sides) should a dragged endpoint attach to. Only box-like elements are
-// bindable — lines can't bind to lines or to themselves.
-
-const BINDABLE = new Set(["rectangle", "oval", "text"])
+// sides) should a dragged endpoint attach to. Which types are bindable is
+// declared per element definition (`bindable: true`) and derived into the
+// BINDABLE set by the registry — lines opt out, so they can't bind to lines or
+// to themselves.
 
 // Padding around the target's box, in SCREEN px (divided by zoom at use), so a
 // drop just outside the border still binds.
