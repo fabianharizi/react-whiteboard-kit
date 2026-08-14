@@ -1,6 +1,7 @@
 import Shape from "../Shape/Shape";
 import Line from "../Line/Line";
 import Path from "../Path/Path";
+import StickyNote from "../../elements/StickyNote";
 import BindPoint from "../BindPoint/BindPoint";
 import { boxFrame } from "../../elements/frame";
 
@@ -21,6 +22,9 @@ const MODES = {
   // Ink previews solid rather than dashed: a dashed freehand stroke reads as a
   // rendering fault, and the pen's ghost is the stroke itself, not an outline.
   path:      { Component: Path,  props: {},                    style: { strokeColor: "#0088aaaa", strokeWidth: 2, strokeStyle: "solid" } },
+  // The sticky ghost is the note itself (WYSIWYG) — a custom element previews
+  // with its own component, the same way it renders.
+  sticky:    { Component: StickyNote, props: {},               style: { color: "#ffe066" } },
 };
 
 export default function Preview({ mode, startX, startY, endX, endY, anchors, points }) {

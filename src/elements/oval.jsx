@@ -27,5 +27,5 @@ export default defineElement({
 
   schema: ["position", "size", "rotation", "fill", "strokeColor", "strokeWidth", "strokeStyle", "opacity"],
 
-  tool: { icon: Circle, shortcut: "o" },
+  tool: { icon: Circle, shortcut: "o", create: "box" },
 })

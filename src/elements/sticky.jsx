@@ -39,5 +39,5 @@ export default defineElement({
     { key: "text", label: "Note", type: "textarea", default: "" },
   ],
 
-  tool: { icon: StickyIcon, shortcut: "n" },
+  tool: { icon: StickyIcon, shortcut: "n", create: "box" },
 })

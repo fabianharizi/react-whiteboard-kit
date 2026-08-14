@@ -10,7 +10,7 @@ import useCamera from './utils/hooks/useCamera';
 import usePreview from './utils/hooks/usePreview';
 import useSelectTool from './utils/tools/useSelectTool';
 import useMoveTool from './utils/tools/useMoveTool';
-import useShapeTool from './utils/tools/useShapeTool';
+import useBoxTool from './utils/tools/useBoxTool';
 import useLineTool from './utils/tools/useLineTool';
 import useTextTool from './utils/tools/useTextTool';
 import usePenTool from './utils/tools/usePenTool';
@@ -18,13 +18,15 @@ import useShortcuts from './utils/hooks/useShortcuts';
 import useCommands from './utils/hooks/useCommands';
 import useContextMenu from './utils/hooks/useContextMenu';
 import { bindTargetAt } from './utils/methods/hitTest';
+import { definitionOf } from './elements';
 
 const SELECTION_TOOLS = ['select', 'move'];
 
 // DEMO seed: one instance of the example `sticky` custom element (src/elements/
-// sticky.jsx), so the extension path renders on load without a creation tool yet
-// wired for it. Select it to see its inline color/text fields in the panel;
-// move/resize/rotate work via the "box" geometry it reused. Safe to delete.
+// sticky.jsx) on load, as a hello-world for the extension path. You can also
+// draw your own with the sticky tool (N). Select it to see its inline color/text
+// fields in the panel; move/resize/rotate work via the "box" geometry it reused.
+// Safe to delete.
 const DEMO_CONTENT = [
   {
     type: "sticky",
@@ -80,7 +82,13 @@ export default function App(){
     if (selectedElements.length && !SELECTION_TOOLS.includes(activeTool)) selectElements([]);
   }, [activeTool, selectedElements]);
 
-  // Install Tool Hooks
+  // Install Tool Hooks. Element-creating tools are gated by their definition's
+  // `create` gesture (from the registry), so adding a box-shaped type needs no
+  // wiring here — it just declares `tool.create: "box"`. select/move aren't
+  // element types, so they stay gated by name. Every hook is mounted
+  // unconditionally and gated by the `active` boolean (Rules of Hooks).
+  const create = definitionOf(activeTool)?.tool?.create;
+
   useSelectTool(
     boardRef,
     activeTool === 'select',
@@ -95,9 +103,9 @@ export default function App(){
     activeTool === 'move',
     panBy
   )
-  useShapeTool(
+  useBoxTool(
     boardRef,
-    activeTool === 'rectangle' || activeTool === 'oval',
+    create === 'box',
     activeTool,
     toWorld,
     enablePreview,
@@ -107,7 +115,7 @@ export default function App(){
   )
   useLineTool(
     boardRef,
-    activeTool === 'line',
+    create === 'line',
     hitTest,
     toWorld,
     enablePreview,
@@ -117,7 +125,7 @@ export default function App(){
   )
   useTextTool(
     boardRef,
-    activeTool === 'text',
+    create === 'text',
     toWorld,
     enablePreview,
     disablePreview,
@@ -126,7 +134,7 @@ export default function App(){
   )
   usePenTool(
     boardRef,
-    activeTool === 'path',
+    create === 'pen',
     toWorld,
     enablePreview,
     disablePreview,

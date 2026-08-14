@@ -18,5 +18,5 @@ export default defineElement({
 
   schema: ["position", "size", "strokeColor", "strokeWidth", "strokeStyle", "opacity"],
 
-  tool: { icon: PenTool, shortcut: "p" },
+  tool: { icon: PenTool, shortcut: "p", create: "pen" },
 })

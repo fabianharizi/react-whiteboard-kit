@@ -27,5 +27,5 @@ export default defineElement({
 
   schema: ["position", "size", "rotation", "fontFamily", "fontSize", "fontWeight", "fontStyle", "align", "content"],
 
-  tool: { icon: TypeIcon, shortcut: "t" },
+  tool: { icon: TypeIcon, shortcut: "t", create: "text" },
 })

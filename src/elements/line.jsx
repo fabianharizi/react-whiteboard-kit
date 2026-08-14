@@ -29,5 +29,5 @@ export default defineElement({
 
   schema: ["start", "end", "routing", "strokeColor", "strokeWidth", "strokeStyle", "headStart", "headEnd"],
 
-  tool: { icon: MoveUpRight, shortcut: "l" },
+  tool: { icon: MoveUpRight, shortcut: "l", create: "line" },
 })
