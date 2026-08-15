@@ -68,21 +68,11 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
 
   const [activeTool, setActiveTool] = useState("select");
   // Controlled when `content` is passed, else uncontrolled from defaultContent.
-  const {content: liveContent, selectedElements, getElement, addElements, selectElements, updateElements, deleteElements, undo, redo, canUndo, canRedo} = useContent(registry, content ?? defaultContent, content);
+  // `onChange` fires from useContent on internal edits only (never on the
+  // controlled sync), so external changes don't echo back.
+  const {content: liveContent, selectedElements, getElement, addElements, selectElements, updateElements, deleteElements, undo, redo, canUndo, canRedo} = useContent(registry, content ?? defaultContent, content, onChange);
   const {camera, panBy, zoomTo, toWorld} = useCamera(boardRef);
   const {preview, enablePreview, disablePreview} = usePreview();
-
-  // Uncontrolled + onChange: emit content changes to the consumer, skipping the
-  // initial mount so `onChange` means "changed", not "mounted". `onChange` rides
-  // a ref so a consumer's inline callback doesn't re-fire the effect on identity
-  // change — only a real content change does.
-  const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; });
-  const mounted = useRef(false);
-  useEffect(() => {
-    if (mounted.current) onChangeRef.current?.(liveContent);
-    else mounted.current = true;
-  }, [liveContent]);
 
   // uuid of the element being edited in place, or null. Only text elements are
   // editable — SelectionBox reports the double-click, this decides what it means.
@@ -139,6 +129,11 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
   // engaging a control that needs its own focus (panel inputs, the in-canvas text
   // editor), which would otherwise steal the caret. Buttons don't keep focus, so
   // clicking a tool still activates the canvas.
+  //
+  // CAPTURE phase, deliberately: the board's pointer handler calls
+  // stopPropagation() while a tool is active (usePointer), which would kill a
+  // bubble-phase handler before the event reached this root. Capture runs on the
+  // way down, before that, so a canvas press still focuses the instance.
   const focusSelf = (e) => {
     if (!e.target.closest('input, textarea, select, [contenteditable="true"]')) {
       rootRef.current?.focus({ preventScroll: true });
@@ -150,7 +145,7 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
       <div
         ref={rootRef}
         tabIndex={-1}
-        onPointerDown={focusSelf}
+        onPointerDownCapture={focusSelf}
         className={className ? `${styles.whiteboard} ${className}` : styles.whiteboard}
         style={{ ...themeVars(theme), ...style }}
       >
