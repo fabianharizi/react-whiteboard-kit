@@ -1,6 +1,6 @@
 import styles from './Board.module.css'
 import encodeContent from '../../utils/methods/encodeContent'
-import { resolveLineEndpoints } from '../../utils/methods/lineGeometry'
+import { resolveElement } from '../../elements/connector'
 import SelectionBox from '../SelectionBox/SelectionBox'
 import Preview from '../Preview/Preview'
 
@@ -9,12 +9,9 @@ import Preview from '../Preview/Preview'
 // and scaled by the camera; its children are positioned in world coordinates.
 
 export default function Board({boardRef, content, camera, toWorld, preview, selectedElements, getElement, updateElements, hitTest, selectionInteractive, editingElement, onEditStart, onEditEnd}){
-  // The SelectionBox works on effective geometry: bound line endpoints resolve
-  // against the live content, so bounds/handles sit where the line renders.
+  // The SelectionBox works on effective geometry: a connector's endpoints resolve
+  // against the live content, so bounds/handles sit where it renders.
   const lookup = (uuid) => content.find(el => el.uuid === uuid)
-  const resolveElement = (el) => el.type === 'line'
-    ? { ...el, properties: { ...el.properties, ...resolveLineEndpoints(el.properties, lookup) } }
-    : el
 
   // The in-place edit session, assembled here because Board already owns the
   // write path. Edits go through updateElements like every other mutation.
@@ -38,7 +35,7 @@ export default function Board({boardRef, content, camera, toWorld, preview, sele
         {encodeContent(content, selectedElements, editing)}
         {preview && <Preview {...preview} />}
         {selectedElements.length > 0 && <SelectionBox
-          elements={selectedElements.map(getElement).filter(Boolean).map(resolveElement)}
+          elements={selectedElements.map(getElement).filter(Boolean).map(el => resolveElement(el, lookup))}
           zoom={camera.zoom}
           toWorld={toWorld}
           updateElements={updateElements}

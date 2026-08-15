@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import UUID from "../methods/UUID";
-import { resolveLineEndpoints } from "../methods/lineGeometry";
 import { geometryOf } from "../geometry";
+import { snapshotConnector, remapConnector } from "../../elements/connector";
 
 // The command registry: every app function (verb) declared once as data, so
 // each surface — shortcuts, buttons, future menus / context menu / palette —
@@ -32,10 +32,10 @@ export default function useCommands({ selectedElements, getElement, addElements,
 
   // Type + properties snapshots of the current selection. `source` keeps the
   // copied element's uuid so bindings can be remapped at spawn (fresh uuids are
-  // minted then). Line snapshots bake their RESOLVED endpoints and keep a
-  // binding only when its target is also in the selection — a line copied
-  // without its target pastes detached at its current position, never silently
-  // bound to the original.
+  // minted then). A connector's snapshot bakes its resolved geometry and keeps a
+  // binding only when its target is also in the selection (snapshotConnector) —
+  // a connector copied without its target pastes detached, never silently bound
+  // to the original. Non-connectors just get a deep-enough clone.
   const snapshotSelection = () => {
     const selected = new Set(selectedElements);
     return selectedElements
@@ -44,32 +44,22 @@ export default function useCommands({ selectedElements, getElement, addElements,
       .map(el => {
         // A shallow copy leaves array-valued properties (a path's `points`)
         // aliased between the snapshot and the live element, so clone those.
-        if (el.type !== "line") return { type: el.type, source: el.uuid, properties: cloneProperties(el.properties) };
-
-        const r = resolveLineEndpoints(el.properties, getElement);
-        const keep = (binding) => (binding && selected.has(binding.uuid)) ? binding : null;
+        const properties = cloneProperties(el.properties);
+        const connectorPatch = snapshotConnector(el, selected, getElement);
         return {
-          type: "line",
+          type: el.type,
           source: el.uuid,
-          properties: {
-            ...el.properties,
-            startX: r.startX, startY: r.startY,
-            endX: r.endX, endY: r.endY,
-            startBinding: keep(el.properties.startBinding),
-            endBinding: keep(el.properties.endBinding),
-          }
+          properties: connectorPatch ? { ...properties, ...connectorPatch } : properties,
         };
       });
   };
 
   // Materialize snapshots as new elements, offset so they don't cover their
   // sources; addElements selects exactly the spawned set. Uuids are minted for
-  // the whole batch first so kept bindings remap onto the spawned copies.
+  // the whole batch first so a connector's kept bindings remap onto the spawned
+  // copies (remapConnector); a non-connector contributes no binding patch.
   const spawnItems = (items) => {
     const minted = new Map(items.map(item => [item.source, UUID.generate(item.type.slice(0, 4))]));
-    const remap = (binding) => (binding && minted.has(binding.uuid))
-      ? { ...binding, uuid: minted.get(binding.uuid) }
-      : null;
 
     addElements(items.map(item => ({
       type: item.type,
@@ -79,10 +69,7 @@ export default function useCommands({ selectedElements, getElement, addElements,
         // Each kind offsets itself. This used to add 20 to four hardcoded
         // coordinates, which a path (which has none) turned into NaN.
         ...geometryOf(item).translate(item.properties, 20, 20),
-        ...(item.type === "line" ? {
-          startBinding: remap(item.properties.startBinding),
-          endBinding: remap(item.properties.endBinding),
-        } : {}),
+        ...(remapConnector(item, minted) ?? {}),
       }
     })));
   };

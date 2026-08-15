@@ -3,9 +3,9 @@
 // exact call, so the built-ins ARE the API's own test suite: if a built-in can't
 // be expressed as a definition, the definition shape is incomplete.
 //
-// Deliberately thin for now. Its job today is to (a) be the one seam a public
-// `<Whiteboard elements={[...]}>` will grow from, and (b) fail loudly at
-// registration rather than deep inside a render when a definition is malformed.
+// Its job is to (a) be the one seam a public `<Whiteboard elements={[...]}>` will
+// grow from, and (b) fail loudly at registration rather than deep inside a render
+// when a definition is malformed.
 //
 // A definition:
 //   type       string, unique — the discriminator stored on every element.
@@ -14,16 +14,22 @@
 //              spread it; self-positioning SVG types (line, path) ignore it and
 //              own their own <svg> frame. This split is why `frame` is a helper a
 //              definition opts into, not something the engine forces on render.
-//   geometry   name of a geometry kind ("box" | "segment" | "path"). Metadata
-//              today; the KIND_BY_TYPE map in utils/geometry moves onto this next.
+//   geometry   name of a geometry kind ("box" | "segment" | "path"); geometryOf
+//              resolves it to the kind's transform/bounds implementation.
 //   schema     ordered list of Properties-panel fields. Each entry is either a
 //              built-in field NAME (resolved against the panel's FIELDS catalog)
 //              or an inline field DEFINITION object — that's what lets a custom
 //              element expose a control the engine never heard of.
-//   defaults   create-time properties. Metadata today; the per-tool hardcoded
-//              defaults collapse onto this when the tools migrate.
+//   defaults   create-time properties; the drawing tools read these so no created
+//              element's initial properties are hardcoded in a tool.
 //   bindable   may a connector endpoint attach to it. Defaults to false.
-//   tool       creation affordance metadata (icon, shortcut, ...). Metadata today.
+//   tool       creation affordance: { icon, shortcut, create }. `create` names the
+//              drawing gesture ("box" | "text" | "line" | "pen") — the toolbar and
+//              App's tool-hook activation are both derived from it.
+//   connector  OPTIONAL. For an element defined by its attachments (a line): the
+//              { refs, resolve, bake, rebind } the engine calls (via
+//              elements/connector.js) to resolve endpoints and keep bindings
+//              honest across delete and copy/paste, instead of any type check.
 
 export default function defineElement(def) {
   if (!def || typeof def !== "object") {

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import usePointer from '../hooks/usePointer';
-import { resolveLineEndpoints } from '../methods/lineGeometry';
 import { geometryOf } from '../geometry';
+import { effectiveProperties } from '../../elements/connector';
 
 // This hook is used to implement the "Select" tool.
 // Click selects one element (empty canvas deselects); dragging draws a marquee
@@ -39,14 +39,12 @@ export default function useSelectTool(ref, active, content, selectElements, toWo
 
       // Select every element whose bounding box overlaps the marquee (partial
       // or full); an empty result deselects all. The SelectionBox renders the
-      // group box from the selection itself. Bound line endpoints resolve to
-      // their targets' anchors — the marquee must test where the line renders.
+      // group box from the selection itself. A connector's bound endpoints
+      // resolve to their targets' anchors — the marquee must test where it renders.
       const lookup = (uuid) => content.find(el => el.uuid === uuid)
       selectElements(content
         .filter(el => {
-          const properties = el.type === "line"
-            ? { ...el.properties, ...resolveLineEndpoints(el.properties, lookup) }
-            : el.properties;
+          const properties = effectiveProperties(el, lookup);
           // NOTE: `bounds` ignores rotation, so a rotated element is still
           // marquee-tested by its unrotated box — a known issue, preserved here
           // deliberately. Switching to `cornersOf` is the one-line fix.

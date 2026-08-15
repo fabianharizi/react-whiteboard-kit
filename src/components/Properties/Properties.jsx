@@ -5,9 +5,9 @@ import {
   ChevronDown, Italic, Type,
 } from "lucide-react"
 import styles from "./Properties.module.css"
-import { resolveLineEndpoints } from "../../utils/methods/lineGeometry"
 import { geometryOf } from "../../utils/geometry"
 import { schemaOf } from "../../elements"
+import { resolveElement } from "../../elements/connector"
 import { FONT_FAMILIES, WEIGHTS, fontStack } from "../../utils/methods/fonts"
 import {
   StrokeSolid, StrokeDashed, StrokeDotted,
@@ -523,10 +523,8 @@ export default function Properties({ selectedElements, getElement, updateElement
   // handling (a later feature), so it stays closed for 0 or 2+ selected.
   const raw = selectedElements.length === 1 ? getElement(selectedElements[0]) : undefined
 
-  // Bound line endpoints display where they actually render.
-  const element = raw?.type === "line"
-    ? { ...raw, properties: { ...raw.properties, ...resolveLineEndpoints(raw.properties, getElement) } }
-    : raw
+  // A connector's bound endpoints display where they actually render.
+  const element = raw ? resolveElement(raw, getElement) : raw
 
   if (!element) return null
 

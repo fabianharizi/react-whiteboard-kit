@@ -27,6 +27,40 @@ export default defineElement({
   geometry: "segment",
   bindable: false,
 
+  // Connector facet: a line is defined by its attachments. The engine calls
+  // these (in utils via elements/connector.js) instead of ever checking
+  // `type === "line"`, to resolve endpoints for rendering/selection and to keep
+  // bindings honest across delete and copy/paste. Any future connector type
+  // implements the same four methods.
+  connector: {
+    // Present bindings, as { key, uuid } — what the engine scans and rewrites.
+    refs: (p) => [
+      ...(p.startBinding ? [{ key: "startBinding", uuid: p.startBinding.uuid }] : []),
+      ...(p.endBinding ? [{ key: "endBinding", uuid: p.endBinding.uuid }] : []),
+    ],
+
+    // Resolve bound endpoints against `lookup` — the render/effective overlay.
+    resolve: (p, lookup) => resolveLineEndpoints(p, lookup),
+
+    // Freeze resolved endpoints into raw coords (a persistable patch), so a line
+    // stays put when a binding is dropped instead of snapping to a stale coord.
+    bake: (p, lookup) => {
+      const r = resolveLineEndpoints(p, lookup)
+      return { startX: r.startX, startY: r.startY, endX: r.endX, endY: r.endY }
+    },
+
+    // Rewrite bindings: each present target uuid goes through `next`, which
+    // returns a replacement uuid, or null to detach that end.
+    rebind: (p, next) => {
+      const map = (b) => {
+        if (!b) return b
+        const u = next(b.uuid)
+        return u ? { ...b, uuid: u } : null
+      }
+      return { startBinding: map(p.startBinding), endBinding: map(p.endBinding) }
+    },
+  },
+
   defaults: {
     routing: "straight",
     strokeColor: "#ffffff",

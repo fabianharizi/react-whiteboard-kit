@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { resolveLineEndpoints } from "../methods/lineGeometry";
+import { bakeOnDelete } from "../../elements/connector";
 
 // This hook is used to keep track of the contents of the canvas.
 //
@@ -133,10 +133,11 @@ export default function useContent(start){
     })
   }
 
-  // Deleting a line's binding target BAKES the line first: its resolved
-  // endpoint coords (computed against the pre-delete content) are written into
-  // the raw coords and the binding is nulled, so the line freezes in place
-  // instead of dangling or snapping to its stale fallback position.
+  // Deleting a connector's binding target BAKES the connector first: its resolved
+  // geometry (computed against the pre-delete content) is written into the raw
+  // coords and the dead binding is nulled, so it freezes in place instead of
+  // dangling or snapping to its stale fallback. bakeOnDelete leaves every
+  // non-connector — and every connector not bound to a doomed target — untouched.
   const deleteElements = (uuids) => {
     const doomed = new Set(uuids)
     const prev = live.current.content
@@ -145,24 +146,7 @@ export default function useContent(start){
     mutate(null, {
       content: prev
         .filter(el => !doomed.has(el.uuid))
-        .map(el => {
-          if (el.type !== "line") return el
-          const startDead = el.properties.startBinding && doomed.has(el.properties.startBinding.uuid)
-          const endDead = el.properties.endBinding && doomed.has(el.properties.endBinding.uuid)
-          if (!startDead && !endDead) return el
-
-          const r = resolveLineEndpoints(el.properties, lookup)
-          return {
-            ...el,
-            properties: {
-              ...el.properties,
-              startX: r.startX, startY: r.startY,
-              endX: r.endX, endY: r.endY,
-              ...(startDead ? { startBinding: null } : {}),
-              ...(endDead ? { endBinding: null } : {}),
-            }
-          }
-        }),
+        .map(el => bakeOnDelete(el, doomed, lookup)),
       selection: live.current.selection.filter(id => !doomed.has(id)),
     })
   }
