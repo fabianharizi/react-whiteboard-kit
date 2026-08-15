@@ -5,15 +5,15 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #001010;
+  background-color: var(--wb-surface, #001010);
 
   /* The grid is drawn on the viewport, not the world: pattern origin follows the
      camera pan and cell size follows the zoom, so lines stay 1px crisp at any
      zoom and a gridline always passes through the world origin. */
   background-size: calc(var(--grid-size) * var(--cam-zoom)) calc(var(--grid-size) * var(--cam-zoom));
   background-position: var(--cam-x) var(--cam-y);
-  background-image: linear-gradient(to right, #ffffff07 1px, transparent 1px),
-                    linear-gradient(to bottom, #ffffff07 1px, transparent 1px);
+  background-image: linear-gradient(to right, var(--wb-grid, #ffffff07) 1px, transparent 1px),
+                    linear-gradient(to bottom, var(--wb-grid, #ffffff07) 1px, transparent 1px);
 }
 
 /* The camera transform. No size — children are absolutely positioned in world
@@ -35,7 +35,7 @@
   position: absolute;
   width: var(--size);
   height: var(--size);
-  background-color: #6c6cff40;
+  background-color: var(--wb-accent-soft, #6c6cff40);
   clip-path: polygon(0 calc(50% - var(--stroke-width)),
                      calc(50% - var(--stroke-width)) calc(50% - var(--stroke-width)),
                      calc(50% - var(--stroke-width)) 0,

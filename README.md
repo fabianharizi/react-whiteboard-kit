@@ -58,16 +58,20 @@ const sticky = defineElement({ type: "sticky", render: /* ... */, geometry: "box
 function App() {
   return (
     // Fills its positioned parent. Uncontrolled: it owns content; onChange reports out.
+    // (For controlled use, pass `content` instead of `defaultContent` and feed it back.)
     <div style={{ width: "100vw", height: "100vh" }}>
       <Whiteboard
         defaultContent={[]}
         elements={[sticky]}
         onChange={(content) => console.log(content.length, "elements")}
+        theme={{ accent: "#e11d48", surface: "#0b0b12" }}   // re-brand via CSS tokens
       />
     </div>
   );
 }
 ```
+
+Uncontrolled by default (`defaultContent` + `onChange`); pass `content` for controlled use. `theme` overrides `--wb-*` design tokens (`accent`, `surface`, `grid`, `panel-bg`, `panel-fg`) that cascade to the panels and canvas — or set the same variables via `style`/CSS. Keyboard shortcuts are scoped to the focused instance, so several whiteboards coexist on one page.
 
 ## Running locally
 
@@ -91,8 +95,8 @@ Toward an engine other people can build on:
 - [x] Command registry, shortcuts, context menu
 - [x] Pluggable geometry kinds + freehand pen, with a unit-test suite over the geometry
 - [x] **Element-type registry** — every type is a `defineElement({...})` module in `src/elements`, registered through the same call a consumer will use, so the built-ins dogfood the extension API. Rendering, the property schema (including inline, element-supplied fields), geometry, connector bindability and behavior, the toolbar, tool activation and create-defaults all dispatch through the definitions — no engine code switches on element type anymore (the one remaining `type` check is the lone-connector selection chrome, a selection-UI concern). The `sticky` note is a worked example of a custom type — component, definition, toolbar tool and all — added with no engine edits.
-- [x] **`<Whiteboard>` API** — a `<Whiteboard defaultContent onChange elements>` component. Uncontrolled state with an `onChange` readout; custom element types passed through `elements` (dogfooded by the `sticky` example, which is registered this way, not built in). Each instance owns an isolated registry via `createRegistry` + `RegistryContext`. Still to come: controlled `content`, and theming.
-- [~] **Embeddability** — styles are scoped inside `Whiteboard.module.css` (no global `*`/`body` rules) and the root is container-relative (`100%`/`100%`, fills its parent) rather than `100vw`/`100vh`. Remaining: the keyboard-shortcut listener is still `window`-global rather than board-scoped.
+- [x] **`<Whiteboard>` API** — a `<Whiteboard defaultContent content onChange elements theme>` component. Uncontrolled (`defaultContent`) or controlled (`content`), with an `onChange` readout; custom element types through `elements` (dogfooded by the `sticky` example, registered this way, not built in); re-branding through `theme` / `--wb-*` CSS tokens. Each instance owns an isolated registry via `createRegistry` + `RegistryContext`.
+- [x] **Embeddability** — styles are scoped inside `Whiteboard.module.css` (no global `*`/`body` rules); the root is container-relative (`100%`/`100%`, fills its parent) rather than `100vw`/`100vh`; and the keyboard-shortcut listener is scoped to the focused instance's root, so several whiteboards coexist on one page without sharing key handling.
 - [ ] **Packaging** — Vite library mode, exports map, React as a peer dependency, a license
 - [ ] Z-order operations and grouping
 - [ ] Persistence and a serialization format

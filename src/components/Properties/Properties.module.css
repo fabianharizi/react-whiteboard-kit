@@ -1,8 +1,8 @@
 .properties{
   width: 260px;
-  background-color: #fff2;
+  background-color: var(--wb-panel-bg, #fff2);
   backdrop-filter: blur(5px);
-  border: 1px solid #fff2;
+  border: 1px solid var(--wb-panel-bg, #fff2);
   border-radius: 5px;
   padding: 12px;
   box-shadow: 4px 4px 15px #15151580;
@@ -11,7 +11,7 @@
   flex-direction: column;
   gap: 12px;
 
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
   font-size: 13px;
 
   /* Native widgets inside the panel (select popups, number spinners, scrollbars,
@@ -77,7 +77,7 @@
   transition: 0.2s ease;
 }
 .part:focus-within{
-  border-color: #6c6cff;
+  border-color: var(--wb-accent, #6c6cff);
 }
 
 .prefix{
@@ -93,7 +93,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
   font: inherit;
   outline: none;
 }
@@ -117,13 +117,13 @@
   border-radius: 3px;
   border: 1px solid #ffffff26;
   background-color: #0003;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
   font: inherit;
   outline: none;
   transition: 0.2s ease;
 }
 .input:focus{
-  border-color: #6c6cff;
+  border-color: var(--wb-accent, #6c6cff);
 }
 
 /* Belt-and-braces for the dropdown list: browsers that honour <option> colours
@@ -131,7 +131,7 @@
    iconSelect menu so both kinds of dropdown look the same. */
 .input option{
   background-color: #232326;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
 }
 
 .textarea{
@@ -142,14 +142,14 @@
   border-radius: 3px;
   border: 1px solid #ffffff26;
   background-color: #0003;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
   font: inherit;
   resize: vertical;
   outline: none;
   transition: 0.2s ease;
 }
 .textarea:focus{
-  border-color: #6c6cff;
+  border-color: var(--wb-accent, #6c6cff);
 }
 
 .colorField{
@@ -163,7 +163,7 @@
   flex: none;
   width: 14px;
   height: 14px;
-  accent-color: #6c6cff;
+  accent-color: var(--wb-accent, #6c6cff);
   cursor: pointer;
 }
 
@@ -233,14 +233,14 @@
 }
 .iconButton:hover{
   background-color: #ffffff1a;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
 }
 .iconButtonActive{
-  background-color: #6c6cff;
+  background-color: var(--wb-accent, #6c6cff);
   color: #fff;
 }
 .iconButtonActive:hover{
-  background-color: #6c6cff;
+  background-color: var(--wb-accent, #6c6cff);
   color: #fff;
 }
 
@@ -261,7 +261,7 @@
   border-radius: 3px;
   border: 1px solid #ffffff26;
   background-color: #0003;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
   cursor: pointer;
   transition: 0.2s ease;
 }
@@ -269,7 +269,7 @@
   border-color: #ffffff4d;
 }
 .iconTrigger[aria-expanded="true"]{
-  border-color: #6c6cff;
+  border-color: var(--wb-accent, #6c6cff);
 }
 
 .chevron{
@@ -312,10 +312,10 @@
 }
 .menuItem:hover{
   background-color: #ffffff1a;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
 }
 .menuItemActive{
-  background-color: #6c6cff;
+  background-color: var(--wb-accent, #6c6cff);
   color: #fff;
 }
 
@@ -327,7 +327,7 @@
 .range input{
   flex: 1;
   min-width: 0;
-  accent-color: #6c6cff;
+  accent-color: var(--wb-accent, #6c6cff);
   cursor: pointer;
 }
 

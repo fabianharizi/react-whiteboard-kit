@@ -25,26 +25,50 @@ const SELECTION_TOOLS = ['select', 'move'];
 
 // The embeddable whiteboard — the engine's public entry point.
 //
-//   defaultContent   initial elements. Uncontrolled: the canvas owns its content
-//                    state; `onChange` reports every change back out.
+//   defaultContent   initial elements for UNCONTROLLED use: the canvas owns its
+//                    content state; `onChange` reports every change back out.
+//   content          CONTROLLED use: pass this (with onChange) and the parent owns
+//                    content — drive it by setting the prop, pass it back as-is in
+//                    onChange. When present it wins over defaultContent.
 //   onChange(content) called whenever content changes (not on mount).
 //   elements         custom element definitions (from defineElement), added to
 //                    the built-ins for THIS instance's registry only — two
 //                    whiteboards can carry different type sets.
+//   theme            optional token overrides, e.g. { accent: "#e11", surface:
+//                    "#0b0b12" }. Each key maps to the `--wb-<key>` CSS variable
+//                    on the root (a full `--wb-…` key is passed through as-is);
+//                    tokens cascade to every panel and canvas element. Equivalent
+//                    to setting the same variables via `style`.
 //   className/style  applied to the root, which fills its positioned parent.
 //
 // The instance registry is the spine: provided to child components via context
 // and passed to the hooks and pure helpers (which can't read context) as an
 // argument, so nothing reaches for a module-level global.
-export default function Whiteboard({ defaultContent = [], onChange, elements = [], className, style }) {
+// Map a `theme` object to CSS custom properties: `accent` → `--wb-accent`, and a
+// key already in `--wb-…` form is kept verbatim.
+function themeVars(theme) {
+  if (!theme) return null;
+  const out = {};
+  for (const [key, value] of Object.entries(theme)) {
+    out[key.startsWith("--") ? key : `--wb-${key}`] = value;
+  }
+  return out;
+}
+
+export default function Whiteboard({ defaultContent = [], content, onChange, elements = [], theme, className, style }) {
   const boardRef = useRef(null);
+  // The focusable instance root. Keyboard shortcuts attach here (not window), so
+  // two whiteboards on a page don't share key handling — only the focused one
+  // responds. A canvas pointerdown focuses it (below).
+  const rootRef = useRef(null);
 
   // Built-ins + the consumer's custom types, rebuilt only when the custom set
   // changes.
   const registry = useMemo(() => createRegistry([...BUILTIN_ELEMENTS, ...elements]), [elements]);
 
   const [activeTool, setActiveTool] = useState("select");
-  const {content, selectedElements, getElement, addElements, selectElements, updateElements, deleteElements, undo, redo, canUndo, canRedo} = useContent(registry, defaultContent);
+  // Controlled when `content` is passed, else uncontrolled from defaultContent.
+  const {content: liveContent, selectedElements, getElement, addElements, selectElements, updateElements, deleteElements, undo, redo, canUndo, canRedo} = useContent(registry, content ?? defaultContent, content);
   const {camera, panBy, zoomTo, toWorld} = useCamera(boardRef);
   const {preview, enablePreview, disablePreview} = usePreview();
 
@@ -56,9 +80,9 @@ export default function Whiteboard({ defaultContent = [], onChange, elements = [
   useEffect(() => { onChangeRef.current = onChange; });
   const mounted = useRef(false);
   useEffect(() => {
-    if (mounted.current) onChangeRef.current?.(content);
+    if (mounted.current) onChangeRef.current?.(liveContent);
     else mounted.current = true;
-  }, [content]);
+  }, [liveContent]);
 
   // uuid of the element being edited in place, or null. Only text elements are
   // editable — SelectionBox reports the double-click, this decides what it means.
@@ -78,7 +102,7 @@ export default function Whiteboard({ defaultContent = [], onChange, elements = [
   // shared by both binding gestures (drawing a line, dragging an endpoint), so
   // they agree — including the zoom-scaled pick radius and this instance's set
   // of bindable types.
-  const hitTest = (wx, wy) => bindTargetAt(registry, content, { x: wx, y: wy }, camera.zoom);
+  const hitTest = (wx, wy) => bindTargetAt(registry, liveContent, { x: wx, y: wy }, camera.zoom);
 
   // The command registry: every app verb declared once, consumed by shortcuts,
   // ZoomBar and the context menu.
@@ -102,21 +126,37 @@ export default function Whiteboard({ defaultContent = [], onChange, elements = [
   // (Rules of Hooks).
   const create = registry.definitionOf(activeTool)?.tool?.create;
 
-  useSelectTool(registry, boardRef, activeTool === 'select', content, selectElements, toWorld, enablePreview, disablePreview)
+  useSelectTool(registry, boardRef, activeTool === 'select', liveContent, selectElements, toWorld, enablePreview, disablePreview)
   useMoveTool(boardRef, activeTool === 'move', panBy)
   useBoxTool(registry, boardRef, create === 'box', activeTool, toWorld, enablePreview, disablePreview, addElements, setActiveTool)
   useLineTool(registry, boardRef, create === 'line', hitTest, toWorld, enablePreview, disablePreview, addElements, setActiveTool)
   useTextTool(registry, boardRef, create === 'text', toWorld, enablePreview, disablePreview, addElements, setActiveTool)
   usePenTool(registry, boardRef, create === 'pen', toWorld, enablePreview, disablePreview, addElements, setActiveTool)
 
-  useShortcuts(registry, activeTool, setActiveTool, commands);
+  useShortcuts(registry, rootRef, activeTool, setActiveTool, commands);
+
+  // Focus the instance so its shortcuts fire here — but not when the user is
+  // engaging a control that needs its own focus (panel inputs, the in-canvas text
+  // editor), which would otherwise steal the caret. Buttons don't keep focus, so
+  // clicking a tool still activates the canvas.
+  const focusSelf = (e) => {
+    if (!e.target.closest('input, textarea, select, [contenteditable="true"]')) {
+      rootRef.current?.focus({ preventScroll: true });
+    }
+  };
 
   return (
     <RegistryProvider value={registry}>
-      <div className={className ? `${styles.whiteboard} ${className}` : styles.whiteboard} style={style}>
+      <div
+        ref={rootRef}
+        tabIndex={-1}
+        onPointerDown={focusSelf}
+        className={className ? `${styles.whiteboard} ${className}` : styles.whiteboard}
+        style={{ ...themeVars(theme), ...style }}
+      >
         <Board
           boardRef={boardRef}
-          content={content}
+          content={liveContent}
           camera={camera}
           toWorld={toWorld}
           preview={preview}

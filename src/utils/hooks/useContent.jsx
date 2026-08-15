@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // This hook is used to keep track of the contents of the canvas.
 //
@@ -27,7 +27,11 @@ const COALESCE_MS = 400
 // Undo depth. Bounded so a long session can't grow the heap without limit.
 const HISTORY_LIMIT = 100
 
-export default function useContent(registry, start){
+// `controlledContent`, when defined, puts the hook in CONTROLLED mode: the
+// parent owns content and drives it by passing a new array; the hook mirrors it
+// (and still reports its own edits outward through the consumer's onChange).
+// Left undefined, the hook is uncontrolled — it owns content from `start`.
+export default function useContent(registry, start, controlledContent = undefined){
   const [content, setContent] = useState(start)
   const [selectedElements, setSelectedElements] = useState([])
 
@@ -55,6 +59,20 @@ export default function useContent(registry, start){
     setContent(next.content)
     setSelectedElements(next.selection)
   }
+
+  // CONTROLLED sync: when the external content prop changes to a new array,
+  // mirror it in. Reference-guarded, so the parent echoing our own onChange back
+  // (same array) is a no-op — pass the content back as-is. Selection is trimmed
+  // to survivors; deliberately NOT recorded, since in controlled mode the parent
+  // owns the timeline. Inlines `apply` so the effect's only dep is the prop.
+  useEffect(() => {
+    if (controlledContent === undefined || controlledContent === live.current.content) return
+    const known = new Set(controlledContent.map(el => el.uuid))
+    const next = { content: controlledContent, selection: live.current.selection.filter(id => known.has(id)) }
+    live.current = next
+    setContent(next.content)
+    setSelectedElements(next.selection)
+  }, [controlledContent])
 
   const syncHistoryFlags = () => {
     setCanUndo(history.current.past.length > 0)

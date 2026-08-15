@@ -22,7 +22,7 @@
   background-color: #232326;
   box-shadow: 0 6px 18px #00000073;
 
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
   font-size: 13px;
 
   /* Native scrollbars inside the panel render dark; inherits to descendants. */
@@ -50,7 +50,7 @@
 .item:hover:not(:disabled),
 .item:focus-visible:not(:disabled){
   background-color: #ffffff1a;
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
   outline: none;
 }
 
@@ -95,7 +95,7 @@
 }
 .item:hover:not(:disabled) .icon,
 .item:hover:not(:disabled) .chevron{
-  color: #e8e8e8;
+  color: var(--wb-panel-fg, #e8e8e8);
 }
 
 .divider{

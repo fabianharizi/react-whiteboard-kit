@@ -6,7 +6,7 @@
   height: var(--height);
   /* The box lives inside the zoomed world div; dividing by the camera zoom
      (inherited from .board) keeps the outline 1 SCREEN px at any zoom. */
-  border: calc(1px / var(--cam-zoom)) solid #6c6cff;
+  border: calc(1px / var(--cam-zoom)) solid var(--wb-accent, #6c6cff);
 
   /* A lone box element rotates the whole chrome with it (about the center,
      matching the element's own pivot). Groups render with 0deg. */
@@ -41,7 +41,7 @@
   height: 8px;
   box-sizing: border-box;
   background-color: #fff;
-  border: 1px solid #6c6cff;
+  border: 1px solid var(--wb-accent, #6c6cff);
   border-radius: 2px;
 
   pointer-events: auto;
@@ -59,7 +59,7 @@
   height: 10px;
   box-sizing: border-box;
   background-color: #fff;
-  border: 1px solid #6c6cff;
+  border: 1px solid var(--wb-accent, #6c6cff);
   border-radius: 50%;
 
   cursor: move;
@@ -77,7 +77,7 @@
   width: 10px;
   height: 10px;
   box-sizing: border-box;
-  background-color: #6c6cff;
+  background-color: var(--wb-accent, #6c6cff);
   border: 1px solid #fff;
   border-radius: 50%;
 

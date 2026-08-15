@@ -8,12 +8,30 @@
    the `style`/`className` props). Everything is scoped to this class — no global
    `*`/`body` rules leak out, which is what makes it embeddable. */
 .whiteboard {
+  /* Theme tokens. Override via the `theme` prop or by setting these variables on
+     the root (style/className) — they're CSS custom properties, so they cascade
+     to every panel and canvas element regardless of CSS-module scoping. This is
+     the primary surface; the many derived text/border shades aren't tokenized
+     yet. `--wb-accent-soft` derives from the accent, so re-branding is one line. */
+  --wb-accent: #6c6cff;
+  --wb-accent-soft: color-mix(in srgb, var(--wb-accent) 25%, transparent);
+  --wb-surface: #001010;
+  --wb-grid: #ffffff07;
+  --wb-panel-bg: #ffffff22;
+  --wb-panel-fg: #e8e8e8;
+
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   font-family: "DM Sans", sans-serif;
   user-select: none;
+}
+
+/* The root is focusable (tabIndex -1) only so keyboard shortcuts can scope to it
+   — it's a container, not a control, so it shows no focus ring. */
+.whiteboard:focus {
+  outline: none;
 }
 
 .interface {

@@ -36,7 +36,11 @@ function matches(e, combo) {
     && e.metaKey === combo.meta;
 }
 
-export default function useShortcuts(registry, activeTool, setActiveTool, commands = []) {
+// `ref` is the element the listeners attach to — the <Whiteboard> root, made
+// focusable. Scoping keydown/keyup here (rather than window) is what keeps two
+// whiteboards on one page from sharing key handling: only the focused instance's
+// root receives keys, and its subtree's events bubble up to it.
+export default function useShortcuts(registry, ref, activeTool, setActiveTool, commands = []) {
   const previousTool = useRef(null);
 
   // Tool bindings depend on the instance's toolset — derived each render (cheap)
@@ -53,6 +57,9 @@ export default function useShortcuts(registry, activeTool, setActiveTool, comman
   useEffect(() => { latest.current = { activeTool, setActiveTool, commands, momentaryTool, toolBindings }; });
 
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
     const handleKeyDown = (e) => {
       const { activeTool, setActiveTool, commands, momentaryTool, toolBindings } = latest.current;
 
@@ -103,11 +110,11 @@ export default function useShortcuts(registry, activeTool, setActiveTool, comman
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    el.addEventListener("keydown", handleKeyDown);
+    el.addEventListener("keyup", handleKeyUp);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      el.removeEventListener("keydown", handleKeyDown);
+      el.removeEventListener("keyup", handleKeyUp);
     };
-  }, []);
+  }, [ref]);
 }
