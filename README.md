@@ -4,7 +4,7 @@ A whiteboard **engine** for React — the canvas machinery you'd otherwise spend
 
 Infinite pannable/zoomable canvas, multi-select with group transforms, connector lines that stay glued to the shapes they join, a properties panel, undo/redo that groups a drag into one step, and a command registry that keyboard shortcuts, buttons and menus all bind to. Written from scratch in React — no canvas library underneath.
 
-> **Status: pre-alpha, not yet packaged.** This runs today as an app you can clone and drive. The extension API and npm distribution are the next milestones — see [Roadmap](#roadmap). Nothing here is API-stable.
+> **Status: pre-alpha, not yet packaged.** It mounts as a `<Whiteboard>` component today — with `defaultContent`/`onChange` and custom element types — but isn't published to npm yet, and nothing here is API-stable. See [Roadmap](#roadmap).
 
 ---
 
@@ -44,7 +44,30 @@ React 19 + Vite. No state library, no router, CSS Modules. The guiding rule: **U
 - **`useContent`** — elements plus selection, behind one internal writer with a live ref mirror so several writes in a tick each see the previous one's result. All operations are **plural-only** — a single element is a one-element array. Selection is a uuid list and the only source of truth; elements carry no `selected` flag, which is why a history snapshot can just be content.
 - **`useCommands`** — the command registry above.
 - **Tools** are hooks composing `usePointer`, all mounted unconditionally and gated by an `active` boolean.
-- **`elements/`** — the element-type registry. Each type is a `defineElement({ type, render, geometry, schema, defaults, bindable, tool })` module, and the built-ins register through the same call a consumer will. Rendering (`encodeContent`) and the property schema dispatch through it today. A box-shaped type positions by spreading the engine-computed `boxFrame` (it never touches coordinates or the `data-uuid` hit-testing hook); lines and ink self-position, since their box is the rendered route. Adding a type is adding a definition.
+- **`elements/`** — the element-type registry. Each type is a `defineElement({ type, render, geometry, schema, defaults, bindable, tool, connector })` module, and the built-ins register through the same call a consumer will. Rendering, the property schema, geometry, connector behavior, the toolbar, tool activation and create-defaults all dispatch through it — no engine code switches on element type. A box-shaped type positions by spreading the engine-computed `boxFrame` (it never touches coordinates or the `data-uuid` hit-testing hook); lines and ink self-position, since their box is the rendered route. Adding a type is adding a definition.
+- **`createRegistry` + `RegistryContext`** — the registry is a value, not a global: `createRegistry(definitions)` bundles every type-aware operation onto one object, and each `<Whiteboard>` builds its own from the built-ins plus the consumer's `elements`. Child components read it via `useRegistry()`; the hooks and pure helpers that can't read context take it as an argument. Two whiteboards on a page can carry different type sets without leaking into each other.
+
+## Usage
+
+```jsx
+import { Whiteboard, defineElement } from "react-whiteboard-kit"; // (packaging pending; today: import from src)
+
+// A custom element type — a plain component plus a definition, no engine edits.
+const sticky = defineElement({ type: "sticky", render: /* ... */, geometry: "box", /* ... */ });
+
+function App() {
+  return (
+    // Fills its positioned parent. Uncontrolled: it owns content; onChange reports out.
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <Whiteboard
+        defaultContent={[]}
+        elements={[sticky]}
+        onChange={(content) => console.log(content.length, "elements")}
+      />
+    </div>
+  );
+}
+```
 
 ## Running locally
 
@@ -68,8 +91,8 @@ Toward an engine other people can build on:
 - [x] Command registry, shortcuts, context menu
 - [x] Pluggable geometry kinds + freehand pen, with a unit-test suite over the geometry
 - [x] **Element-type registry** — every type is a `defineElement({...})` module in `src/elements`, registered through the same call a consumer will use, so the built-ins dogfood the extension API. Rendering, the property schema (including inline, element-supplied fields), geometry, connector bindability and behavior, the toolbar, tool activation and create-defaults all dispatch through the definitions — no engine code switches on element type anymore (the one remaining `type` check is the lone-connector selection chrome, a selection-UI concern). The `sticky` note is a worked example of a custom type — component, definition, toolbar tool and all — added with no engine edits.
-- [ ] **Embeddability** — drop the global `*`/`body` CSS, container-relative layout instead of `100vw/100vh`, listeners scoped to the board
-- [ ] **`<Whiteboard>` API** — `content`/`onChange`, custom element types, theming
+- [x] **`<Whiteboard>` API** — a `<Whiteboard defaultContent onChange elements>` component. Uncontrolled state with an `onChange` readout; custom element types passed through `elements` (dogfooded by the `sticky` example, which is registered this way, not built in). Each instance owns an isolated registry via `createRegistry` + `RegistryContext`. Still to come: controlled `content`, and theming.
+- [~] **Embeddability** — styles are scoped inside `Whiteboard.module.css` (no global `*`/`body` rules) and the root is container-relative (`100%`/`100%`, fills its parent) rather than `100vw`/`100vh`. Remaining: the keyboard-shortcut listener is still `window`-global rather than board-scoped.
 - [ ] **Packaging** — Vite library mode, exports map, React as a peer dependency, a license
 - [ ] Z-order operations and grouping
 - [ ] Persistence and a serialization format

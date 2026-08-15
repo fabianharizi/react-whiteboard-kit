@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import usePointer from '../hooks/usePointer';
 import UUID from '../methods/UUID'
-import { definitionOf } from '../../elements'
 
 // The box-draw creation tool: drag a rectangle to size, or click for a default
 // square. It serves ANY element type whose definition declares `tool.create:
@@ -10,7 +9,7 @@ import { definitionOf } from '../../elements'
 // box-shaped type is drawable with no edit here. The drag ghost previews under
 // the type's own name (each has a matching Preview mode).
 
-export default function useBoxTool(ref, active, type, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function useBoxTool(registry, ref, active, type, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
   // World position of the pointerdown — the box's anchored corner.
   const start = useRef({ x: 0, y: 0 })
 
@@ -38,7 +37,7 @@ export default function useBoxTool(ref, active, type, toWorld, enablePreview, di
         type,
         uuid: UUID.generate(type.slice(0, 4)),
         // The type's own create defaults, then the drawn box on top.
-        properties: { ...(definitionOf(type)?.defaults ?? {}), ...coords },
+        properties: { ...(registry.definitionOf(type)?.defaults ?? {}), ...coords },
       }])
       disablePreview()
       setActiveTool("select")

@@ -1,13 +1,11 @@
 import { anchorPoint } from "./lineGeometry"
 import { rotatePoint } from "../geometry/primitives"
-import { geometryOf } from "../geometry"
-import { BINDABLE } from "../../elements"
 
 // Bind-target hit-testing for line endpoints: which element (and which of its
 // sides) should a dragged endpoint attach to. Which types are bindable is
 // declared per element definition (`bindable: true`) and derived into the
-// BINDABLE set by the registry — lines opt out, so they can't bind to lines or
-// to themselves.
+// registry's `bindable` set — lines opt out, so they can't bind to lines or to
+// themselves. Both that set and the geometry come from the passed `registry`.
 
 // Padding around the target's box, in SCREEN px (divided by zoom at use), so a
 // drop just outside the border still binds.
@@ -17,15 +15,15 @@ const BIND_PAD = 10
 // nearest side (the one a dropped endpoint should anchor to) and that side's
 // anchor point — which is both where the endpoint snaps and where the UI marks
 // the pending attachment. Null when the point is over empty canvas.
-export function bindTargetAt(content, worldPt, zoom = 1) {
+export function bindTargetAt(registry, content, worldPt, zoom = 1) {
   const pad = BIND_PAD / zoom
 
   // Content order is z-order, so scan topmost-first.
   for (let i = content.length - 1; i >= 0; i--) {
     const el = content[i]
-    if (!BINDABLE.has(el.type)) continue
+    if (!registry.bindable.has(el.type)) continue
 
-    const geometry = geometryOf(el)
+    const geometry = registry.geometryOf(el)
     const { left, right, top, bottom } = geometry.bounds(el.properties)
     const rotation = geometry.rotationOf(el.properties)
     const center = geometry.center(el.properties)

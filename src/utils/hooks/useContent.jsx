@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { bakeOnDelete } from "../../elements/connector";
 
 // This hook is used to keep track of the contents of the canvas.
 //
@@ -28,7 +27,7 @@ const COALESCE_MS = 400
 // Undo depth. Bounded so a long session can't grow the heap without limit.
 const HISTORY_LIMIT = 100
 
-export default function useContent(start){
+export default function useContent(registry, start){
   const [content, setContent] = useState(start)
   const [selectedElements, setSelectedElements] = useState([])
 
@@ -146,7 +145,7 @@ export default function useContent(start){
     mutate(null, {
       content: prev
         .filter(el => !doomed.has(el.uuid))
-        .map(el => bakeOnDelete(el, doomed, lookup)),
+        .map(el => registry.bakeOnDelete(el, doomed, lookup)),
       selection: live.current.selection.filter(id => !doomed.has(id)),
     })
   }

@@ -1,12 +1,11 @@
 import { useRef } from 'react';
 import usePointer from '../hooks/usePointer';
 import UUID from '../methods/UUID'
-import { definitionOf } from '../../elements'
 
 // This hook is used to implement the "Text" tool.
 // It needs a condition to be active.
 
-export default function useTextTool(ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function useTextTool(registry, ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
   // World position of the pointerdown — the text box's anchored corner.
   const start = useRef({ x: 0, y: 0 })
 
@@ -34,7 +33,7 @@ export default function useTextTool(ref, active, toWorld, enablePreview, disable
         type: "text",
         uuid: UUID.generate("text"),
         // Create-defaults come from the registry; the drawn box goes on top.
-        properties: { ...definitionOf("text").defaults, ...coords },
+        properties: { ...registry.definitionOf("text").defaults, ...coords },
       }])
       disablePreview()
       setActiveTool("select")

@@ -1,56 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
-
-* {
-  font-family: "DM Sans", sans-serif;
-}
-
-body{
+/* Demo-host styling only. The engine's own styles are scoped inside
+   Whiteboard.module.css; this is just the page that hosts it — a full-viewport
+   container with the browser's default margin removed. A real embedder styles
+   their own container instead. */
+body {
   margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  user-select: none;
 }
 
-.container{
-  position: relative;
+.host {
   width: 100vw;
   height: 100vh;
-}
-
-.interface{
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none; 
-}
-
-.interface *{
-  pointer-events: auto;
-}
-
-.container .toolbar{
-  position: absolute;
-  left: 0;
-  bottom: 50px;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-content: center;
-  pointer-events: none;
-}
-
-.container .zoombar{
-  position: absolute;
-  right: 20px;
-  bottom: 50px;
-  pointer-events: none;
-}
-
-.container .properties{
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  pointer-events: none;
 }

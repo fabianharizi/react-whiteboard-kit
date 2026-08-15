@@ -1,7 +1,5 @@
 import { useRef } from "react";
 import UUID from "../methods/UUID";
-import { geometryOf } from "../geometry";
-import { snapshotConnector, remapConnector } from "../../elements/connector";
 
 // The command registry: every app function (verb) declared once as data, so
 // each surface — shortcuts, buttons, future menus / context menu / palette —
@@ -16,7 +14,7 @@ import { snapshotConnector, remapConnector } from "../../elements/connector";
 // Commands are verbs (fire-and-forget). Tools are modes and stay in toolset.js;
 // a command MAY activate a mode, never the reverse.
 
-export default function useCommands({ selectedElements, getElement, addElements, deleteElements, camera, zoomTo, undo, redo, canUndo, canRedo }) {
+export default function useCommands({ registry, selectedElements, getElement, addElements, deleteElements, camera, zoomTo, undo, redo, canUndo, canRedo }) {
   // Clipboard is copy/paste-internal state — it lives here, not in App.
   const clipboard = useRef(null);
 
@@ -45,7 +43,7 @@ export default function useCommands({ selectedElements, getElement, addElements,
         // A shallow copy leaves array-valued properties (a path's `points`)
         // aliased between the snapshot and the live element, so clone those.
         const properties = cloneProperties(el.properties);
-        const connectorPatch = snapshotConnector(el, selected, getElement);
+        const connectorPatch = registry.snapshotConnector(el, selected, getElement);
         return {
           type: el.type,
           source: el.uuid,
@@ -68,8 +66,8 @@ export default function useCommands({ selectedElements, getElement, addElements,
         ...item.properties,
         // Each kind offsets itself. This used to add 20 to four hardcoded
         // coordinates, which a path (which has none) turned into NaN.
-        ...geometryOf(item).translate(item.properties, 20, 20),
-        ...(remapConnector(item, minted) ?? {}),
+        ...registry.geometryOf(item).translate(item.properties, 20, 20),
+        ...(registry.remapConnector(item, minted) ?? {}),
       }
     })));
   };

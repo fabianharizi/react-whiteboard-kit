@@ -28,10 +28,10 @@ export default defineElement({
   bindable: false,
 
   // Connector facet: a line is defined by its attachments. The engine calls
-  // these (in utils via elements/connector.js) instead of ever checking
-  // `type === "line"`, to resolve endpoints for rendering/selection and to keep
-  // bindings honest across delete and copy/paste. Any future connector type
-  // implements the same four methods.
+  // these (wrapped as registry methods in createRegistry.js) instead of ever
+  // checking `type === "line"`, to resolve endpoints for rendering/selection and
+  // to keep bindings honest across delete and copy/paste. Any future connector
+  // type implements the same four methods.
   connector: {
     // Present bindings, as { key, uuid } — what the engine scans and rewrites.
     refs: (p) => [

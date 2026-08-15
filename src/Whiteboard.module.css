@@ -1,0 +1,55 @@
+/* DM Sans is the engine's UI font (panels, toolbar). Loaded here so the
+   component is self-contained; text elements load their own faces via the host
+   page. @import must lead the file. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+
+/* The root fills its positioned parent rather than the viewport, so the engine
+   drops into any container. The consumer sizes it (a parent with dimensions, or
+   the `style`/`className` props). Everything is scoped to this class — no global
+   `*`/`body` rules leak out, which is what makes it embeddable. */
+.whiteboard {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "DM Sans", sans-serif;
+  user-select: none;
+}
+
+.interface {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The overlay layer is click-through; its actual controls opt back in. The
+   panel WRAPPERS below re-disable themselves (more specific) so their empty area
+   still passes pointer events to the canvas, while the controls inside stay live. */
+.interface * {
+  pointer-events: auto;
+}
+
+.whiteboard .toolbar {
+  position: absolute;
+  left: 0;
+  bottom: 50px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  pointer-events: none;
+}
+
+.whiteboard .zoombar {
+  position: absolute;
+  right: 20px;
+  bottom: 50px;
+  pointer-events: none;
+}
+
+.whiteboard .properties {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  pointer-events: none;
+}

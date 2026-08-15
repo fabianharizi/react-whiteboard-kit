@@ -27,9 +27,9 @@
 //              drawing gesture ("box" | "text" | "line" | "pen") — the toolbar and
 //              App's tool-hook activation are both derived from it.
 //   connector  OPTIONAL. For an element defined by its attachments (a line): the
-//              { refs, resolve, bake, rebind } the engine calls (via
-//              elements/connector.js) to resolve endpoints and keep bindings
-//              honest across delete and copy/paste, instead of any type check.
+//              { refs, resolve, bake, rebind } the engine calls (as the registry
+//              methods built in createRegistry.js) to resolve endpoints and keep
+//              bindings honest across delete and copy/paste, never a type check.
 
 export default function defineElement(def) {
   if (!def || typeof def !== "object") {

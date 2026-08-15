@@ -1,5 +1,5 @@
 import styles from './Toolbar.module.css'
-import toolset from '../../utils/tools/toolset.js'
+import { useRegistry } from '../../elements/RegistryContext'
 
 // Build a tooltip like "Rectangle (R)" from a tool's id and shortcut.
 function label(tool){
@@ -12,6 +12,7 @@ function label(tool){
 }
 
 export default function Toolbar({activeTool, setActiveTool}){
+  const { toolset } = useRegistry();
   return (
     <div className={styles.toolbar}>
       {toolset.map((group, index) => <div key={"tb-"+index} className={styles.group}>

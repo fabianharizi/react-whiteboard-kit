@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
-import toolset from "../tools/toolset";
 
 // This hook wires global keyboard shortcuts.
 //
-// Tool shortcuts are declared per-tool in toolset.js:
+// Tool shortcuts come from the registry's toolset (per <Whiteboard> instance):
 //   - shortcut:  sticky press (switch tool, stays)
 //   - momentary: hold to temporarily switch, restore previous tool on release
 //
@@ -16,9 +15,6 @@ import toolset from "../tools/toolset";
 // Matching is EXACT — "r" fires only with no modifiers held, so it won't
 // collide with browser combos like Ctrl+R, and those combos fall through
 // to the browser untouched.
-
-const tools = toolset.flat();
-const momentaryTool = tools.find(t => t.momentary);
 
 function parseShortcut(str) {
   const parts = str.toLowerCase().split("+");
@@ -40,21 +36,25 @@ function matches(e, combo) {
     && e.metaKey === combo.meta;
 }
 
-// Tool bindings are static — parse once at module load.
-const toolBindings = tools
-  .filter(t => t.shortcut)
-  .map(t => ({ combo: parseShortcut(t.shortcut), id: t.id }));
-
-export default function useShortcuts(activeTool, setActiveTool, commands = []) {
+export default function useShortcuts(registry, activeTool, setActiveTool, commands = []) {
   const previousTool = useRef(null);
 
+  // Tool bindings depend on the instance's toolset — derived each render (cheap)
+  // and carried in the latest-ref, so the single listener always sees the
+  // current instance's tools without re-attaching.
+  const tools = registry.toolset.flat();
+  const momentaryTool = tools.find(t => t.momentary);
+  const toolBindings = tools
+    .filter(t => t.shortcut)
+    .map(t => ({ combo: parseShortcut(t.shortcut), id: t.id }));
+
   // Latest-ref so listeners attach once but always see current props.
-  const latest = useRef({ activeTool, setActiveTool, commands });
-  useEffect(() => { latest.current = { activeTool, setActiveTool, commands }; });
+  const latest = useRef(null);
+  useEffect(() => { latest.current = { activeTool, setActiveTool, commands, momentaryTool, toolBindings }; });
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const { activeTool, setActiveTool, commands } = latest.current;
+      const { activeTool, setActiveTool, commands, momentaryTool, toolBindings } = latest.current;
 
       const el = e.target;                                // don't hijack typing
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable) return;
@@ -91,7 +91,7 @@ export default function useShortcuts(activeTool, setActiveTool, commands = []) {
     };
 
     const handleKeyUp = (e) => {
-      const { setActiveTool } = latest.current;
+      const { setActiveTool, momentaryTool } = latest.current;
 
       // Restore only when a momentary hold is actually in progress — previousTool
       // doubles as that flag. A keyup with no matching engage (e.g. Space typed

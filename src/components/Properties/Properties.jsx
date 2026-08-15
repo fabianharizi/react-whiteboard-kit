@@ -5,9 +5,8 @@ import {
   ChevronDown, Italic, Type,
 } from "lucide-react"
 import styles from "./Properties.module.css"
-import { geometryOf } from "../../utils/geometry"
-import { schemaOf } from "../../elements"
-import { resolveElement } from "../../elements/connector"
+import path from "../../utils/geometry/path"
+import { useRegistry } from "../../elements/RegistryContext"
 import { FONT_FAMILIES, WEIGHTS, fontStack } from "../../utils/methods/fonts"
 import {
   StrokeSolid, StrokeDashed, StrokeDotted,
@@ -59,14 +58,17 @@ const MULTI_CONTROL = new Set(["pair", "combo", "icons", "iconSelect"])
 // branch lives here rather than in a per-type field — which is exactly the kind
 // of scattering the element-type registry is meant to remove. When that lands,
 // these should collapse into each type's own schema.
+// These position/size helpers are path-specific (a path stores `points`, not two
+// corners), so they use the path geometry kind directly rather than the registry
+// dispatch — the math is the same whatever type set this instance carries.
 const isPath = (p) => Array.isArray(p.points)
-const pathBounds = (p) => geometryOf({ type: "path" }).bounds(p)
+const pathBounds = (p) => path.bounds(p)
 
 // Move a path so its bounding box's `edge` (left/top) lands on `v`.
 const movePathTo = (p, edge, v) => {
   const b = pathBounds(p)
   const d = v - b[edge]
-  return geometryOf({ type: "path" }).translate(p, edge === "left" ? d : 0, edge === "left" ? 0 : d)
+  return path.translate(p, edge === "left" ? d : 0, edge === "left" ? 0 : d)
 }
 
 // Scale a path so its bounding box takes on `v` along one axis, anchored at its
@@ -76,7 +78,7 @@ const scalePathTo = (p, axis, v) => {
   const next = axis === "width"
     ? { ...b, right: b.left + v }
     : { ...b, bottom: b.top + v }
-  return geometryOf({ type: "path" }).mapIntoBox(p, b, next)
+  return path.mapIntoBox(p, b, next)
 }
 
 // A "pair" field renders two number inputs on one row. Each part derives its value
@@ -519,16 +521,18 @@ function Field({ entry, properties, onPatch }) {
 }
 
 export default function Properties({ selectedElements, getElement, updateElements }) {
+  const registry = useRegistry()
+
   // The panel edits exactly one element. Multi-editing needs mixed-value
   // handling (a later feature), so it stays closed for 0 or 2+ selected.
   const raw = selectedElements.length === 1 ? getElement(selectedElements[0]) : undefined
 
   // A connector's bound endpoints display where they actually render.
-  const element = raw ? resolveElement(raw, getElement) : raw
+  const element = raw ? registry.resolveElement(raw, getElement) : raw
 
   if (!element) return null
 
-  const fields = schemaOf(element.type)
+  const fields = registry.schemaOf(element.type)
 
   return (
     <aside className={styles.properties}>

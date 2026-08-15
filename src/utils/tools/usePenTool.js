@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import usePointer from '../hooks/usePointer';
 import UUID from '../methods/UUID'
-import { definitionOf } from '../../elements'
 
 // This hook is used to implement the "Pen" tool — freehand ink, committed as a
 // `path` element holding the sampled points. It needs a condition to be active.
@@ -26,7 +25,7 @@ import { definitionOf } from '../../elements'
 // pointsPathD is what makes the result look continuous.
 const MIN_SAMPLE_DISTANCE = 2
 
-export default function usePenTool(ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function usePenTool(registry, ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
   // The stroke being drawn, in world coords.
   const points = useRef([])
   // Last accepted sample in SCREEN coords, for the thinning test.
@@ -77,7 +76,7 @@ export default function usePenTool(ref, active, toWorld, enablePreview, disableP
         type: "path",
         uuid: UUID.generate("path"),
         // Registry create-defaults (stroke, opacity) plus the sampled stroke.
-        properties: { ...definitionOf("path").defaults, points: stroke },
+        properties: { ...registry.definitionOf("path").defaults, points: stroke },
       }])
     }
   })

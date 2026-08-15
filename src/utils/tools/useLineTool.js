@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import usePointer from '../hooks/usePointer';
 import UUID from '../methods/UUID'
-import { definitionOf } from '../../elements'
 
 // This hook is used to implement the "Line" tool. Lines are connectors: a draw
 // that starts or ends on a bindable element snaps to that element's nearest
@@ -12,7 +11,7 @@ import { definitionOf } from '../../elements'
 // uses (App owns it), so drawing a line and re-dragging its endpoint agree on
 // what binds where — including the zoom-scaled pick radius.
 
-export default function useLineTool(ref, active, hitTest, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function useLineTool(registry, ref, active, hitTest, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
   // World position of the pointerdown — the line's start endpoint, snapped to
   // the bind anchor when the press lands on a bindable element.
   const start = useRef({ x: 0, y: 0 })
@@ -57,7 +56,7 @@ export default function useLineTool(ref, active, hitTest, toWorld, enablePreview
         // Registry create-defaults (routing, stroke, heads), then this draw's
         // endpoints and bindings on top.
         properties: {
-          ...definitionOf("line").defaults,
+          ...registry.definitionOf("line").defaults,
           startX: start.current.x,
           startY: start.current.y,
           endX: end.x,

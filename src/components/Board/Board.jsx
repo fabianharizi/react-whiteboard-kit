@@ -1,6 +1,6 @@
 import styles from './Board.module.css'
 import encodeContent from '../../utils/methods/encodeContent'
-import { resolveElement } from '../../elements/connector'
+import { useRegistry } from '../../elements/RegistryContext'
 import SelectionBox from '../SelectionBox/SelectionBox'
 import Preview from '../Preview/Preview'
 
@@ -9,6 +9,8 @@ import Preview from '../Preview/Preview'
 // and scaled by the camera; its children are positioned in world coordinates.
 
 export default function Board({boardRef, content, camera, toWorld, preview, selectedElements, getElement, updateElements, hitTest, selectionInteractive, editingElement, onEditStart, onEditEnd}){
+  const registry = useRegistry()
+
   // The SelectionBox works on effective geometry: a connector's endpoints resolve
   // against the live content, so bounds/handles sit where it renders.
   const lookup = (uuid) => content.find(el => el.uuid === uuid)
@@ -32,10 +34,10 @@ export default function Board({boardRef, content, camera, toWorld, preview, sele
       }}
     >
       <div className={styles.world}>
-        {encodeContent(content, selectedElements, editing)}
+        {encodeContent(registry, content, selectedElements, editing)}
         {preview && <Preview {...preview} />}
         {selectedElements.length > 0 && <SelectionBox
-          elements={selectedElements.map(getElement).filter(Boolean).map(el => resolveElement(el, lookup))}
+          elements={selectedElements.map(getElement).filter(Boolean).map(el => registry.resolveElement(el, lookup))}
           zoom={camera.zoom}
           toWorld={toWorld}
           updateElements={updateElements}

@@ -3,35 +3,29 @@ import oval from "./oval"
 import line from "./line"
 import text from "./text"
 import path from "./path"
-import sticky from "./sticky"
+import { createRegistry } from "./createRegistry"
 
-// The element-type registry: the one place that knows the set of types and what
-// each one is. Everything that used to switch on `el.type` reads from here
-// instead. Adding a type — built-in or, later, one a consumer passes to
-// <Whiteboard> — is adding a definition to this list, not editing every surface.
+// The element-type registry. `createRegistry(definitions)` builds an isolated one
+// (see that file); each <Whiteboard> gets its own via RegistryContext, so element
+// sets don't leak between instances.
 //
-// The built-ins register through the same defineElement() a third party would,
-// so this list is also the contract's proof: if one of them couldn't be a plain
-// definition, the shape would be wrong.
+// The built-ins register through the same list a consumer's custom types do — so
+// this list is the API's own proof: if a built-in couldn't be a plain definition,
+// the shape would be wrong.
 
-// `sticky` is an EXAMPLE custom element (see sticky.jsx) kept alongside the
-// built-ins to prove the extension path — it registers through the exact same
-// list. Remove it (and its demo seed in App) once the public API supersedes it.
-const DEFINITIONS = [rectangle, oval, line, text, path, sticky]
+export const BUILTIN_ELEMENTS = [rectangle, oval, line, text, path]
 
-const BY_TYPE = new Map(DEFINITIONS.map(def => [def.type, def]))
+// A default registry over the built-ins, backing the free-function exports below
+// (and the geometry / connector / toolset re-export shims) for the unit tests and
+// any consumer that wants the built-in behavior without a <Whiteboard> instance.
+// Custom types (e.g. the `sticky` example) reach the engine through
+// <Whiteboard elements={[...]}>, which builds its own registry — never this one.
+export const registry = createRegistry(BUILTIN_ELEMENTS)
 
-// The definition for an element instance (or null for an unknown type).
-export const elementOf = (el) => BY_TYPE.get(el?.type) ?? null
+export const elementOf = registry.elementOf
+export const definitionOf = registry.definitionOf
+export const schemaOf = registry.schemaOf
+export const BINDABLE = registry.bindable
+export const DEFINITIONS = registry.DEFINITIONS
 
-// The definition for a type string.
-export const definitionOf = (type) => BY_TYPE.get(type) ?? null
-
-// The Properties-panel field list for a type (empty for unknown types).
-export const schemaOf = (type) => BY_TYPE.get(type)?.schema ?? []
-
-// Types a connector endpoint may attach to. Derived, so it can't drift from the
-// definitions the way a hand-kept set in hitTest.js could.
-export const BINDABLE = new Set(DEFINITIONS.filter(def => def.bindable).map(def => def.type))
-
-export { DEFINITIONS }
+export { createRegistry }

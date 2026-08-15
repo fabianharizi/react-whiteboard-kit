@@ -3,7 +3,7 @@ import usePointer from './../../utils/hooks/usePointer';
 import { useRef, useState } from "react";
 import { rad, deg } from "../../utils/geometry/primitives";
 import { HANDLES, MIN_SIZE, handleOffset, snap15, resizeBox } from "../../utils/geometry/resize";
-import { boundsOf, geometryOf } from "../../utils/geometry";
+import { useRegistry } from "../../elements/RegistryContext";
 import BindPoint from "../BindPoint/BindPoint";
 
 // `interactive` gates all dragging: only the select tool may resize/move/rotate.
@@ -13,6 +13,8 @@ import BindPoint from "../BindPoint/BindPoint";
 // a lone selection is double-clicked — the box covers the element, so this
 // overlay is the only thing that can see that gesture.
 export default function SelectionBox({ elements, zoom, toWorld, updateElements, hitTest, interactive, onActivate }) {
+  const registry = useRegistry()
+
   // Bind candidate under an endpoint drag — rendered as a highlight so the
   // user sees which element the endpoint will attach to on release.
   const [bindCandidate, setBindCandidate] = useState(null)
@@ -27,12 +29,12 @@ export default function SelectionBox({ elements, zoom, toWorld, updateElements, 
   // A lone box element rotates the whole chrome with it, so resize handles work
   // in the element's local frame. Groups keep an axis-aligned box (rotation 0),
   // and so does a lone segment — its kind reports no rotation to carry.
-  const rotation = elements.length === 1 ? geometryOf(elements[0]).rotationOf(elements[0].properties) : 0
+  const rotation = elements.length === 1 ? registry.geometryOf(elements[0]).rotationOf(elements[0].properties) : 0
 
   // Only the rotating-chrome case measures in the element's local frame; every
   // other selection needs bounds that cover rotated footprints — see boundsOf.
   const coverRotated = rotation === 0
-  const box = boundsOf(elements, coverRotated)
+  const box = registry.boundsOf(elements, coverRotated)
 
   return (
     <div
@@ -81,6 +83,7 @@ export default function SelectionBox({ elements, zoom, toWorld, updateElements, 
 // element together. Pointer deltas are screen px → divide by zoom for world.
 // Translation is rotation-independent, so rotated chrome needs no special case.
 function useBodyDrag(elements, zoom, updateElements, interactive, onActivate) {
+  const registry = useRegistry()
   const ref = useRef(null)
   const origin = useRef(null)
 
@@ -102,7 +105,7 @@ function useBodyDrag(elements, zoom, updateElements, interactive, onActivate) {
       const dy = (p.y - p.startY) / zoom
       updateElements(origin.current.map(o => ({
         uuid: o.uuid,
-        properties: geometryOf(o).translate(o.properties, dx, dy),
+        properties: registry.geometryOf(o).translate(o.properties, dx, dy),
       })))
     },
   })
@@ -114,6 +117,7 @@ function useBodyDrag(elements, zoom, updateElements, interactive, onActivate) {
 // corners are mapped proportionally into the new box — one code path whether
 // the selection holds one element or many.
 function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElements }) {
+  const registry = useRegistry()
   const ref = useRef(null)
   const origin = useRef(null)   // group box + member corners snapshotted at drag start
   const off = handleOffset(spec.pos)
@@ -125,7 +129,7 @@ function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElement
       origin.current = {
         // Must match the box that was RENDERED, or the handle would resize
         // relative to a different rectangle than the one being dragged.
-        box: boundsOf(elements, coverRotated),
+        box: registry.boundsOf(elements, coverRotated),
         members: elements.map(el => ({ uuid: el.uuid, type: el.type, properties: { ...el.properties } })),
         rotation,
       }
@@ -170,7 +174,7 @@ function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElement
       // and a segment happen to do that identically today, but a path won't.
       updateElements(o.members.map(m => ({
         uuid: m.uuid,
-        properties: geometryOf(m).mapIntoBox(m.properties, o.box, next),
+        properties: registry.geometryOf(m).mapIntoBox(m.properties, o.box, next),
       })))
     },
   })
@@ -193,6 +197,7 @@ function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElement
 // which IS their rotation. Shift snaps to 15°: a single element snaps its
 // resulting angle, a group snaps the drag delta (a group has no single angle).
 function RotateHandle({ elements, toWorld, updateElements }) {
+  const registry = useRegistry()
   const ref = useRef(null)
   const origin = useRef(null)
 
@@ -200,7 +205,7 @@ function RotateHandle({ elements, toWorld, updateElements }) {
     active: true,
     cursor: "grab",
     onDown: (p) => {
-      const box = boundsOf(elements)
+      const box = registry.boundsOf(elements)
       const center = { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 }
       const pw = toWorld(p.x, p.y)
       origin.current = {
@@ -209,7 +214,7 @@ function RotateHandle({ elements, toWorld, updateElements }) {
         members: elements.map(el => ({ uuid: el.uuid, type: el.type, properties: { ...el.properties } })),
         // Absolute snapping needs an angle to snap TO, which only a kind that
         // stores its rotation has. A lone segment falls back to delta snapping.
-        single: elements.length === 1 && geometryOf(elements[0]).storesRotation,
+        single: elements.length === 1 && registry.geometryOf(elements[0]).storesRotation,
       }
     },
     onMove: (p) => {
@@ -219,13 +224,13 @@ function RotateHandle({ elements, toWorld, updateElements }) {
       let delta = deg(Math.atan2(pw.y - o.center.y, pw.x - o.center.x)) - o.startAngle
 
       if (p.shiftKey) {
-        const at = o.single ? geometryOf(o.members[0]).rotationOf(o.members[0].properties) : 0
+        const at = o.single ? registry.geometryOf(o.members[0]).rotationOf(o.members[0].properties) : 0
         delta = o.single ? snap15(at + delta) - at : snap15(delta)
       }
 
       updateElements(o.members.map(m => ({
         uuid: m.uuid,
-        properties: geometryOf(m).rotate(m.properties, o.center, delta),
+        properties: registry.geometryOf(m).rotate(m.properties, o.center, delta),
       })))
     },
   })
