@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import usePointer from '../hooks/usePointer';
 import UUID from '../methods/UUID'
+import { definitionOf } from '../../elements'
 
 // This hook is used to implement the "Text" tool.
 // It needs a condition to be active.
@@ -32,17 +33,8 @@ export default function useTextTool(ref, active, toWorld, enablePreview, disable
       addElements([{
         type: "text",
         uuid: UUID.generate("text"),
-        properties: {
-          ...coords,
-          content: "Lorem ipsum dolor sit amet",
-          rotation: 0,
-          horizontal: "left",
-          vertical: "top",
-          fontFamily: "DM Sans",
-          fontSize: 16,
-          fontWeight: "400",
-          fontStyle: "normal"
-        }
+        // Create-defaults come from the registry; the drawn box goes on top.
+        properties: { ...definitionOf("text").defaults, ...coords },
       }])
       disablePreview()
       setActiveTool("select")

@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import usePointer from '../hooks/usePointer';
 import UUID from '../methods/UUID'
+import { definitionOf } from '../../elements'
 
 // This hook is used to implement the "Pen" tool — freehand ink, committed as a
 // `path` element holding the sampled points. It needs a condition to be active.
@@ -75,13 +76,8 @@ export default function usePenTool(ref, active, toWorld, enablePreview, disableP
       addElements([{
         type: "path",
         uuid: UUID.generate("path"),
-        properties: {
-          points: stroke,
-          strokeColor: "#ffffff",
-          strokeWidth: 2,
-          strokeStyle: "solid",
-          opacity: 1,
-        }
+        // Registry create-defaults (stroke, opacity) plus the sampled stroke.
+        properties: { ...definitionOf("path").defaults, points: stroke },
       }])
     }
   })

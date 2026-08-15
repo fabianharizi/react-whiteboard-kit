@@ -16,6 +16,13 @@ export default defineElement({
   geometry: "path",
   bindable: false,
 
+  defaults: {
+    strokeColor: "#ffffff",
+    strokeWidth: 2,
+    strokeStyle: "solid",
+    opacity: 1,
+  },
+
   schema: ["position", "size", "strokeColor", "strokeWidth", "strokeStyle", "opacity"],
 
   tool: { icon: PenTool, shortcut: "p", create: "pen" },

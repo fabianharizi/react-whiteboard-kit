@@ -25,6 +25,17 @@ export default defineElement({
   geometry: "box",
   bindable: true,
 
+  defaults: {
+    content: "Lorem ipsum dolor sit amet",
+    rotation: 0,
+    horizontal: "left",
+    vertical: "top",
+    fontFamily: "DM Sans",
+    fontSize: 16,
+    fontWeight: "400",
+    fontStyle: "normal",
+  },
+
   schema: ["position", "size", "rotation", "fontFamily", "fontSize", "fontWeight", "fontStyle", "align", "content"],
 
   tool: { icon: TypeIcon, shortcut: "t", create: "text" },

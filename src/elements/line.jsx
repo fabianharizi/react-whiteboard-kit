@@ -27,6 +27,15 @@ export default defineElement({
   geometry: "segment",
   bindable: false,
 
+  defaults: {
+    routing: "straight",
+    strokeColor: "#ffffff",
+    strokeWidth: 2,
+    strokeStyle: "solid",
+    headStart: "none",
+    headEnd: "arrow",
+  },
+
   schema: ["start", "end", "routing", "strokeColor", "strokeWidth", "strokeStyle", "headStart", "headEnd"],
 
   tool: { icon: MoveUpRight, shortcut: "l", create: "line" },
