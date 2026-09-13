@@ -7,7 +7,7 @@ import usePointer from '../hooks/usePointer';
 // Marquee bounds come from the passed `registry` (a connector's endpoints
 // resolve, then the element's geometry kind gives the box).
 
-export default function useSelectTool(registry, ref, active, content, selectElements, toWorld, enablePreview, disablePreview) {
+export default function useSelectTool(registry, ref, active, content, selectElements, toWorld, enablePreview, disablePreview, session) {
   // World position of the pointerdown — the marquee's anchored corner.
   const start = useRef({ x: 0, y: 0 })
 
@@ -63,5 +63,5 @@ export default function useSelectTool(registry, ref, active, content, selectElem
       selectElements(el ? [el.getAttribute('data-uuid')] : []);
       disablePreview()
     }
-  })
+  }, session)
 }

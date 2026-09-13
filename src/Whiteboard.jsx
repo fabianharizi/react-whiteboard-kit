@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPointerSession } from './utils/hooks/usePointer';
 import styles from './Whiteboard.module.css';
 import { createRegistry, BUILTIN_ELEMENTS } from './elements';
 import { RegistryProvider } from './elements/RegistryContext';
@@ -77,6 +78,12 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
   const registry = useMemo(() => createRegistry([...BUILTIN_ELEMENTS, ...elements]), [elements]);
 
   const [activeTool, setActiveTool] = useState("select");
+
+  // This instance's pointer session — the state every usePointer on this canvas
+  // shares: the double-click pairing record, and how many gestures are in
+  // flight. useState's lazy initialiser rather than a ref, so it's created once
+  // AND readable during render without reaching into `ref.current`.
+  const [pointerSession] = useState(createPointerSession);
   // Controlled when `content` is passed, else uncontrolled from defaultContent.
   // `onChange` fires from useContent on internal edits only (never on the
   // controlled sync), so external changes don't echo back.
@@ -106,7 +113,7 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
 
   // The command registry: every app verb declared once, consumed by shortcuts,
   // ZoomBar and the context menu.
-  const {commands, runCommand} = useCommands({ registry, selectedElements, getElement, addElements, deleteElements, camera, zoomTo, undo, redo, canUndo, canRedo });
+  const {commands, runCommand} = useCommands({ registry, selectedElements, getElement, addElements, deleteElements, camera, zoomTo, undo, redo, canUndo, canRedo, pointerSession });
 
   // Right-click: decides which menu the click means (and selects under the
   // cursor when needed).
@@ -126,12 +133,12 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
   // (Rules of Hooks).
   const create = registry.definitionOf(activeTool)?.tool?.create;
 
-  useSelectTool(registry, boardRef, activeTool === 'select', liveContent, selectElements, toWorld, enablePreview, disablePreview)
-  useMoveTool(boardRef, activeTool === 'move', panBy)
-  useBoxTool(registry, boardRef, create === 'box', activeTool, toWorld, enablePreview, disablePreview, addElements, setActiveTool)
-  useLineTool(registry, boardRef, create === 'line', hitTest, toWorld, enablePreview, disablePreview, addElements, setActiveTool)
-  useTextTool(registry, boardRef, create === 'text', toWorld, enablePreview, disablePreview, addElements, setActiveTool)
-  usePenTool(registry, boardRef, create === 'pen', toWorld, enablePreview, disablePreview, addElements, setActiveTool)
+  useSelectTool(registry, boardRef, activeTool === 'select', liveContent, selectElements, toWorld, enablePreview, disablePreview, pointerSession)
+  useMoveTool(boardRef, activeTool === 'move', panBy, pointerSession)
+  useBoxTool(registry, boardRef, create === 'box', activeTool, toWorld, enablePreview, disablePreview, addElements, setActiveTool, pointerSession)
+  useLineTool(registry, boardRef, create === 'line', hitTest, toWorld, enablePreview, disablePreview, addElements, setActiveTool, pointerSession)
+  useTextTool(registry, boardRef, create === 'text', toWorld, enablePreview, disablePreview, addElements, setActiveTool, pointerSession)
+  usePenTool(registry, boardRef, create === 'pen', toWorld, enablePreview, disablePreview, addElements, setActiveTool, pointerSession)
 
   useShortcuts(registry, rootRef, activeTool, setActiveTool, commands);
 
@@ -175,6 +182,7 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
           editingElement={editing}
           onEditStart={startEditing}
           onEditEnd={() => setEditingElement(null)}
+          pointerSession={pointerSession}
         />
         <div className={styles.interface}>
           <div className={styles.properties}>

@@ -11,7 +11,7 @@ import UUID from '../methods/UUID'
 // uses (App owns it), so drawing a line and re-dragging its endpoint agree on
 // what binds where — including the zoom-scaled pick radius.
 
-export default function useLineTool(registry, ref, active, hitTest, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function useLineTool(registry, ref, active, hitTest, toWorld, enablePreview, disablePreview, addElements, setActiveTool, session) {
   // World position of the pointerdown — the line's start endpoint, snapped to
   // the bind anchor when the press lands on a bindable element.
   const start = useRef({ x: 0, y: 0 })
@@ -68,5 +68,5 @@ export default function useLineTool(registry, ref, active, hitTest, toWorld, ena
       disablePreview()
       setActiveTool("select")
     }
-  })
+  }, session)
 }

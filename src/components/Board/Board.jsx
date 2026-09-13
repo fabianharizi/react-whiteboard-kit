@@ -8,7 +8,7 @@ import Preview from '../Preview/Preview'
 // and receives all pointer/wheel input. The world div inside it is translated
 // and scaled by the camera; its children are positioned in world coordinates.
 
-export default function Board({boardRef, content, camera, toWorld, preview, selectedElements, getElement, updateElements, hitTest, selectionInteractive, editingElement, onEditStart, onEditEnd}){
+export default function Board({boardRef, content, camera, toWorld, preview, selectedElements, getElement, updateElements, hitTest, selectionInteractive, editingElement, onEditStart, onEditEnd, pointerSession}){
   const registry = useRegistry()
 
   // The SelectionBox works on effective geometry: a connector's endpoints resolve
@@ -44,6 +44,7 @@ export default function Board({boardRef, content, camera, toWorld, preview, sele
           hitTest={hitTest}
           interactive={selectionInteractive}
           onActivate={onEditStart}
+          session={pointerSession}
         />}
       </div>
     </div>

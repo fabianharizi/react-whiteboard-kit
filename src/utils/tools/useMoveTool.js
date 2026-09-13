@@ -4,7 +4,7 @@ import usePointer from '../hooks/usePointer';
 // This hook is used to implement the "Move" tool: dragging pans the camera, so
 // the content follows the cursor. It needs a condition to be active.
 
-export default function useMoveTool(ref, active, panBy) {
+export default function useMoveTool(ref, active, panBy, session) {
   // Last pointer position — panning applies incremental deltas.
   const last = useRef({ x: 0, y: 0 })
 
@@ -23,5 +23,5 @@ export default function useMoveTool(ref, active, panBy) {
     onUp: (p, setCursor) => {
       setCursor()
     }
-  })
+  }, session)
 }

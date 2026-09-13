@@ -11,8 +11,11 @@ import BindPoint from "../BindPoint/BindPoint";
 // absolute pointer positions (needed for rotation angles). `hitTest` finds the
 // bindable element under a dragged line endpoint. `onActivate(uuid)` fires when
 // a lone selection is double-clicked — the box covers the element, so this
-// overlay is the only thing that can see that gesture.
-export default function SelectionBox({ elements, zoom, toWorld, updateElements, hitTest, interactive, onActivate }) {
+// overlay is the only thing that can see that gesture. `session` is the
+// instance's pointer session, threaded to every usePointer below: it's what
+// pairs the two clicks of that double-click across the hand-off from the element
+// to this overlay, and what tells the app a gesture is in flight.
+export default function SelectionBox({ elements, zoom, toWorld, updateElements, hitTest, interactive, onActivate, session }) {
   const registry = useRegistry()
 
   // Bind candidate under an endpoint drag — rendered as a highlight so the
@@ -20,7 +23,7 @@ export default function SelectionBox({ elements, zoom, toWorld, updateElements, 
   const [bindCandidate, setBindCandidate] = useState(null)
 
   // Body-drag: dragging the container interior moves the whole selection.
-  const bodyRef = useBodyDrag(elements, zoom, updateElements, interactive, onActivate)
+  const bodyRef = useBodyDrag(elements, zoom, updateElements, interactive, onActivate, session)
 
   // Endpoint handles are a line-type affordance (endpoint identity is per-line,
   // meaningless on a group), so they apply to a lone selected line only.
@@ -60,12 +63,12 @@ export default function SelectionBox({ elements, zoom, toWorld, updateElements, 
       }}
     >
       {interactive && (loneLine
-        ? <LineHandles element={loneLine} zoom={zoom} updateElements={updateElements} box={box} hitTest={hitTest} onCandidate={setBindCandidate} />
+        ? <LineHandles element={loneLine} zoom={zoom} updateElements={updateElements} box={box} hitTest={hitTest} onCandidate={setBindCandidate} session={session} />
         : <>
             {HANDLES.map((h) => (
-              <BoxHandle key={h.pos} spec={h} elements={elements} zoom={zoom} rotation={rotation} coverRotated={coverRotated} updateElements={updateElements} />
+              <BoxHandle key={h.pos} spec={h} elements={elements} zoom={zoom} rotation={rotation} coverRotated={coverRotated} updateElements={updateElements} session={session} />
             ))}
-            <RotateHandle elements={elements} toWorld={toWorld} updateElements={updateElements} />
+            <RotateHandle elements={elements} toWorld={toWorld} updateElements={updateElements} session={session} />
           </>)}
       {/* Marks the exact anchor the endpoint will glue to. The endpoint has
           already snapped there, so this confirms the precise attachment point
@@ -82,7 +85,7 @@ export default function SelectionBox({ elements, zoom, toWorld, updateElements, 
 // Attaches a pointer drag to the box container that translates every selected
 // element together. Pointer deltas are screen px → divide by zoom for world.
 // Translation is rotation-independent, so rotated chrome needs no special case.
-function useBodyDrag(elements, zoom, updateElements, interactive, onActivate) {
+function useBodyDrag(elements, zoom, updateElements, interactive, onActivate, session) {
   const registry = useRegistry()
   const ref = useRef(null)
   const origin = useRef(null)
@@ -108,7 +111,7 @@ function useBodyDrag(elements, zoom, updateElements, interactive, onActivate) {
         properties: registry.geometryOf(o).translate(o.properties, dx, dy),
       })))
     },
-  })
+  }, session)
 
   return ref
 }
@@ -116,7 +119,7 @@ function useBodyDrag(elements, zoom, updateElements, interactive, onActivate) {
 // A resize handle. Dragging it resizes the group box, and every element's raw
 // corners are mapped proportionally into the new box — one code path whether
 // the selection holds one element or many.
-function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElements }) {
+function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElements, session }) {
   const registry = useRegistry()
   const ref = useRef(null)
   const origin = useRef(null)   // group box + member corners snapshotted at drag start
@@ -177,7 +180,7 @@ function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElement
         properties: registry.geometryOf(m).mapIntoBox(m.properties, o.box, next),
       })))
     },
-  })
+  }, session)
 
   return (
     <span
@@ -196,7 +199,7 @@ function BoxHandle({ spec, elements, zoom, rotation, coverRotated, updateElement
 // `rotation`; line members have no rotation property — their endpoints rotate,
 // which IS their rotation. Shift snaps to 15°: a single element snaps its
 // resulting angle, a group snaps the drag delta (a group has no single angle).
-function RotateHandle({ elements, toWorld, updateElements }) {
+function RotateHandle({ elements, toWorld, updateElements, session }) {
   const registry = useRegistry()
   const ref = useRef(null)
   const origin = useRef(null)
@@ -233,7 +236,7 @@ function RotateHandle({ elements, toWorld, updateElements }) {
         properties: registry.geometryOf(m).rotate(m.properties, o.center, delta),
       })))
     },
-  })
+  }, session)
 
   return <span className={styles.rotateHandle} ref={ref} data-handle="rotate" />
 }
@@ -243,25 +246,25 @@ function RotateHandle({ elements, toWorld, updateElements }) {
 // Endpoint drags are also how bindings are made and broken: hovering a
 // bindable element snaps to its nearest side and binds on release; dropping on
 // empty canvas detaches.
-function LineHandles({ element, zoom, updateElements, box, hitTest, onCandidate }) {
+function LineHandles({ element, zoom, updateElements, box, hitTest, onCandidate, session }) {
   const p = element.properties
   return (
     <>
       <LineHandle
         element={element} zoom={zoom} updateElements={updateElements} box={box}
         hitTest={hitTest} onCandidate={onCandidate} bindKey="startBinding"
-        keyX="startX" keyY="startY" x={p.startX} y={p.startY}
+        keyX="startX" keyY="startY" x={p.startX} y={p.startY} session={session}
       />
       <LineHandle
         element={element} zoom={zoom} updateElements={updateElements} box={box}
         hitTest={hitTest} onCandidate={onCandidate} bindKey="endBinding"
-        keyX="endX" keyY="endY" x={p.endX} y={p.endY}
+        keyX="endX" keyY="endY" x={p.endX} y={p.endY} session={session}
       />
     </>
   )
 }
 
-function LineHandle({ element, zoom, updateElements, box, hitTest, onCandidate, bindKey, keyX, keyY, x, y }) {
+function LineHandle({ element, zoom, updateElements, box, hitTest, onCandidate, bindKey, keyX, keyY, x, y, session }) {
   const ref = useRef(null)
   const origin = useRef(null)
   const candidate = useRef(null)
@@ -298,7 +301,7 @@ function LineHandle({ element, zoom, updateElements, box, hitTest, onCandidate, 
         properties: { [bindKey]: { uuid: hit.uuid, side: hit.side } }
       }])
     },
-  })
+  }, session)
 
   // Pixel offset of this endpoint inside the bounding-box container.
   return (

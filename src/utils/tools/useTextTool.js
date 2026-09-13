@@ -5,7 +5,7 @@ import UUID from '../methods/UUID'
 // This hook is used to implement the "Text" tool.
 // It needs a condition to be active.
 
-export default function useTextTool(registry, ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function useTextTool(registry, ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool, session) {
   // World position of the pointerdown — the text box's anchored corner.
   const start = useRef({ x: 0, y: 0 })
 
@@ -41,5 +41,5 @@ export default function useTextTool(registry, ref, active, toWorld, enablePrevie
       disablePreview()
       setActiveTool("select")
     }
-  })
+  }, session)
 }

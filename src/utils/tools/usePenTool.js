@@ -25,7 +25,7 @@ import UUID from '../methods/UUID'
 // pointsPathD is what makes the result look continuous.
 const MIN_SAMPLE_DISTANCE = 2
 
-export default function usePenTool(registry, ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function usePenTool(registry, ref, active, toWorld, enablePreview, disablePreview, addElements, setActiveTool, session) {
   // The stroke being drawn, in world coords.
   const points = useRef([])
   // Last accepted sample in SCREEN coords, for the thinning test.
@@ -79,5 +79,5 @@ export default function usePenTool(registry, ref, active, toWorld, enablePreview
         properties: { ...registry.definitionOf("path").defaults, points: stroke },
       }])
     }
-  })
+  }, session)
 }

@@ -9,7 +9,7 @@ import UUID from '../methods/UUID'
 // box-shaped type is drawable with no edit here. The drag ghost previews under
 // the type's own name (each has a matching Preview mode).
 
-export default function useBoxTool(registry, ref, active, type, toWorld, enablePreview, disablePreview, addElements, setActiveTool) {
+export default function useBoxTool(registry, ref, active, type, toWorld, enablePreview, disablePreview, addElements, setActiveTool, session) {
   // World position of the pointerdown — the box's anchored corner.
   const start = useRef({ x: 0, y: 0 })
 
@@ -42,5 +42,5 @@ export default function useBoxTool(registry, ref, active, type, toWorld, enableP
       disablePreview()
       setActiveTool("select")
     }
-  })
+  }, session)
 }

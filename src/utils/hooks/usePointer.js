@@ -19,16 +19,56 @@ import { useRef, useEffect } from "react";
 // faceted. Reach for the snapshot first; the event is the escape hatch.
 
 // Double-click is SYNTHESIZED from two clicks rather than taken from the native
-// `dblclick` event, and the bookkeeping is module-scoped on purpose: selecting
-// an element mounts the SelectionBox overlay on top of it, so the two clicks of
-// a double-click land on different DOM nodes owned by different usePointer
-// instances. A per-instance (or native) double-click can't survive that
-// hand-off; an app-wide "when/where was the last click" can.
+// `dblclick` event: selecting an element mounts the SelectionBox overlay on top
+// of it, so the two clicks of a double-click land on different DOM nodes owned
+// by different usePointer instances. A per-instance (or native) double-click
+// can't survive that hand-off — the record has to be shared.
 const DOUBLE_MS = 400;
 const DOUBLE_SLOP = 6;          // screen px — a double-click may drift slightly
-let lastClick = { time: 0, x: 0, y: 0 };
 
-export default function usePointer(ref, callback) {
+// ...but shared across the WHITEBOARD, not the module. That's what a session is:
+// the state every usePointer on one canvas has to agree about, scoped so two
+// whiteboards on a page can't see each other's. <Whiteboard> makes one and hands
+// it to every tool hook and to SelectionBox.
+//
+// The state is CLOSED OVER rather than exposed as fields, for two reasons. The
+// rules that read it (what pairs as a double-click, what counts as idle) belong
+// with the state, not scattered across callers. And a session is handed around
+// as a parameter — mutating a passed-in object's fields is what
+// react-hooks/immutability rightly rejects, while calling a method that mutates
+// its own closure is ordinary. Nothing here renders, so none of it is state.
+export function createPointerSession() {
+  // When and where the last click landed.
+  let lastClick = { time: 0, x: 0, y: 0 };
+
+  // How many pointer gestures are in flight on this canvas.
+  let gestures = 0;
+
+  return {
+    // Does this click pair with the previous one? Consumes the pair when it
+    // does, so a third click opens a fresh one rather than chaining.
+    pairClick(x, y, now) {
+      const isDouble = now - lastClick.time < DOUBLE_MS
+        && Math.hypot(x - lastClick.x, y - lastClick.y) < DOUBLE_SLOP;
+      lastClick = isDouble ? { time: 0, x: 0, y: 0 } : { time: now, x, y };
+      return isDouble;
+    },
+
+    beginGesture() { gestures += 1 },
+    endGesture() { gestures -= 1 },
+
+    // No gesture in flight. A gesture is an uncommitted transaction — a drag
+    // snapshots geometry at pointerdown and writes "snapshot + total delta" on
+    // every move — so undo asks before running (see useCommands).
+    isIdle() { return gestures === 0 },
+  };
+}
+
+// For a usePointer used outside a <Whiteboard>. Keeps a stray instance working
+// rather than crashing; anything inside the engine passes its instance session.
+const UNOWNED_SESSION = createPointerSession();
+
+export default function usePointer(ref, callback, session = UNOWNED_SESSION) {
   const pointer = useRef({
     isDown: false,
     startX: 0,
@@ -48,6 +88,25 @@ export default function usePointer(ref, callback) {
   // catches the draw's trailing click with a stale target).
   const sawDown = useRef(false);
 
+  // Whether this instance currently holds a counted gesture. A gesture has five
+  // possible exits (pointerup, the missed-pointerup safety net, cancel, lost
+  // capture, and the effect cleanup that runs on unmount or when `active` flips
+  // off), several of which can fire for the same gesture — so the count is
+  // guarded here rather than trusting any one of them to be the last word.
+  const counted = useRef(false);
+
+  const beginGesture = () => {
+    if (counted.current) return;
+    counted.current = true;
+    session.beginGesture();
+  };
+
+  const endGesture = () => {
+    if (!counted.current) return;
+    counted.current = false;
+    session.endGesture();
+  };
+
   // Cursor type handling
 
   const setCursor = (type) => {ref.current.style.cursor = type ?? latestCallback.current.cursor ?? 'default'}
@@ -59,6 +118,7 @@ export default function usePointer(ref, callback) {
     e.stopPropagation();
     ref.current.setPointerCapture(e.pointerId)
     sawDown.current = true;
+    beginGesture();
 
     latestCallback.current.onDown?.(
       pointer.current = {
@@ -82,6 +142,7 @@ export default function usePointer(ref, callback) {
     // is held, capture was lost and the up never reached us. Finalize the gesture
     // instead of resuming a phantom drag on hover.
     if (pointer.current.isDown && e.buttons === 0) {
+      endGesture();
       latestCallback.current.onUp?.(
         pointer.current = { ...pointer.current, isDown: false },
         setCursor,
@@ -116,6 +177,11 @@ export default function usePointer(ref, callback) {
     // would hand the tool a stale pointer snapshot (phantom commits).
     if (!pointer.current.isDown) return;
 
+    // Before onUp, not after: the gesture is over at this point, and a tool's
+    // onUp legitimately writes history (a draw commits here). Ending first also
+    // means a throwing callback can't leak the count.
+    endGesture();
+
     latestCallback.current.onUp?.(
       pointer.current = {
         ...pointer.current,
@@ -126,6 +192,7 @@ export default function usePointer(ref, callback) {
   // Capture can be lost for reasons other than pointerup (element detach, browser
   // intervention). Reset so a subsequent hover can't resume a phantom drag.
   const handleLostCapture = () => {
+    endGesture();
     pointer.current = { ...pointer.current, isDown: false };
   };
 
@@ -134,6 +201,7 @@ export default function usePointer(ref, callback) {
     if (!e.isPrimary || !latestCallback.current.active) return;
     
     sawDown.current = false;
+    endGesture();
     latestCallback.current.onCancel?.(
       pointer.current = {
         ...pointer.current,
@@ -157,10 +225,7 @@ export default function usePointer(ref, callback) {
 
     // Second click of a pair, close enough in time and space? Consume the pair
     // (so a third click opens a fresh one) and report a double-click.
-    const now = performance.now();
-    const isDouble = now - lastClick.time < DOUBLE_MS
-      && Math.hypot(e.clientX - lastClick.x, e.clientY - lastClick.y) < DOUBLE_SLOP;
-    lastClick = isDouble ? { time: 0, x: 0, y: 0 } : { time: now, x: e.clientX, y: e.clientY };
+    const isDouble = session.pairClick(e.clientX, e.clientY, performance.now());
 
     // Deliberately leaves isDown alone (false since the pointerup): a click is
     // not a gesture in progress, and re-marking it down would re-arm the
@@ -195,6 +260,9 @@ export default function usePointer(ref, callback) {
     element.addEventListener('click', handleClick);
 
     return () => {
+      // Unmount, or `active` flipping off mid-gesture. Either way the gesture
+      // this instance was holding is over and its count must not leak.
+      endGesture();
       pointer.current.isDown = false;
       sawDown.current = false;
       element.style.cursor = 'default';

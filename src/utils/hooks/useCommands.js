@@ -14,11 +14,21 @@ import UUID from "../methods/UUID";
 // Commands are verbs (fire-and-forget). Tools are modes and stay in toolset.js;
 // a command MAY activate a mode, never the reverse.
 
-export default function useCommands({ registry, selectedElements, getElement, addElements, deleteElements, camera, zoomTo, undo, redo, canUndo, canRedo }) {
+export default function useCommands({ registry, selectedElements, getElement, addElements, deleteElements, camera, zoomTo, undo, redo, canUndo, canRedo, pointerSession }) {
   // Clipboard is copy/paste-internal state — it lives here, not in App.
   const clipboard = useRef(null);
 
   const hasSelection = () => selectedElements.length > 0;
+
+  // A pointer gesture is an UNCOMMITTED TRANSACTION, so undo/redo stands down
+  // while one is in flight. A drag snapshots geometry at pointerdown and writes
+  // "snapshot + total delta from the press point" on every move, so it has no
+  // idea history moved underneath it: an undo mid-drag visibly lands, then the
+  // very next mouse move silently overwrites it — and costs a history entry
+  // doing so, because the undo reset the coalescing key. Undo twice and the edit
+  // before the drag becomes unreachable. Every other canvas tool blocks here for
+  // the same reason.
+  const idle = () => !pointerSession || pointerSession.isIdle();
 
   // Properties are otherwise flat, so a spread is enough — except for a path's
   // `points`, where a shared array reference would let a later edit reach back
@@ -84,14 +94,14 @@ export default function useCommands({ registry, selectedElements, getElement, ad
       id: "undo",
       label: "Undo",
       shortcut: "ctrl+z",
-      enabled: () => canUndo,
+      enabled: () => canUndo && idle(),
       run: undo,
     },
     {
       id: "redo",
       label: "Redo",
       shortcut: ["ctrl+shift+z", "ctrl+y"],
-      enabled: () => canRedo,
+      enabled: () => canRedo && idle(),
       run: redo,
     },
     {
