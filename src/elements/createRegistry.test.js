@@ -138,6 +138,33 @@ describe("geometry dispatch for custom types", () => {
   it("falls back to box when a definition omits geometry", () => {
     expect(registry.geometryOf({ type: "plain" })).toBe(box)
   })
+
+  // OMITTING geometry is legal (above). Naming a kind that doesn't exist is a
+  // typo, and used to surface as `geometryOf` returning undefined and something
+  // unrelated throwing on the first drag.
+  it("rejects a geometry name that isn't a kind, at registry-build time", () => {
+    const typo = defineElement({ type: "oops", geometry: "bax", render: () => null })
+    expect(() => createRegistry([typo])).toThrow(/unknown geometry "bax"/)
+  })
+
+  it("names the offending type and the legal kinds in that error", () => {
+    const typo = defineElement({ type: "oops", geometry: "bax", render: () => null })
+    expect(() => createRegistry([typo])).toThrow(/createRegistry\(oops\)/)
+    expect(() => createRegistry([typo])).toThrow(/box, segment, path/)
+  })
+
+  it("accepts every legal kind name", () => {
+    for (const geometry of ["box", "segment", "path"]) {
+      expect(() => createRegistry([defineElement({ type: "k", geometry, render: () => null })])).not.toThrow()
+    }
+  })
+
+  // Object.hasOwn, not `in` — otherwise geometry: "toString" would pass the check
+  // and then resolve to a function.
+  it("doesn't accept an inherited Object property as a kind name", () => {
+    const sneaky = defineElement({ type: "oops", geometry: "toString", render: () => null })
+    expect(() => createRegistry([sneaky])).toThrow(/unknown geometry/)
+  })
 })
 
 describe("connector ops: resolve", () => {

@@ -29,6 +29,20 @@ export function createRegistry(definitions) {
   const DEFINITIONS = definitions
   const byType = new Map(definitions.map(d => [d.type, d]))
 
+  // `geometry` is stringly typed with three legal values, so misspelling it is
+  // easy — and used to be silent: geometryOf resolved to undefined and the first
+  // bounds/drag/render call threw somewhere that never mentioned the definition
+  // at fault. Checking here keeps defineElement decoupled from the kind table
+  // while still failing before anything renders. OMITTING the field stays legal
+  // and falls back to box (below); naming a kind that doesn't exist does not.
+  for (const d of definitions) {
+    if (d.geometry !== undefined && !Object.hasOwn(KINDS, d.geometry)) {
+      throw new Error(
+        `createRegistry(${d.type}): unknown geometry "${d.geometry}" — expected one of ${Object.keys(KINDS).join(", ")}`
+      )
+    }
+  }
+
   const elementOf = (el) => byType.get(el?.type) ?? null
   const definitionOf = (type) => byType.get(type) ?? null
   const schemaOf = (type) => byType.get(type)?.schema ?? []
