@@ -83,13 +83,29 @@ export function deleteElements(state, uuids, registry) {
 export const clearContent = () => ({ content: [], selection: [] })
 
 // CONTROLLED mode: take on content the parent owns. The array is adopted by
-// reference (the parent's identity is what the hook's guard compares against on
-// the next render) and the selection is trimmed to whatever survived, since the
-// replacement may have dropped elements that were selected.
+// reference (the parent's identity is what the hook compares against) and the
+// selection is trimmed to whatever survived, since the parent may have dropped
+// elements that were selected.
 export function adoptContent(state, content) {
   const known = new Set(content.map(el => el.uuid))
   return {
     content,
     selection: state.selection.filter(id => known.has(id)),
   }
+}
+
+// Did the parent replace the document, as opposed to accepting our edit or
+// declining it? Three cases have to be told apart, and only the first should
+// cost the user their undo history:
+//
+//   incoming !== synced, !== emitted   the parent set content to something of
+//                                      its own — the timeline on the stack
+//                                      describes content it has discarded.
+//   incoming !== synced, === emitted   the parent accepted the edit we emitted.
+//                                      Same timeline, one step further along.
+//   incoming === synced                the prop didn't move at all: either
+//                                      nothing happened, or the parent DECLINED
+//                                      an edit. A veto shouldn't wipe history.
+export function isExternalReplacement(incoming, synced, emitted) {
+  return incoming !== synced && incoming !== emitted
 }

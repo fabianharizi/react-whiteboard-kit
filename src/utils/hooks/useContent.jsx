@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as ops from "../methods/contentState";
+import { isExternalReplacement } from "../methods/contentState";
 import { emptyHistory, record, travel, canUndo as hasPast, canRedo as hasFuture } from "../methods/history";
 
 // This hook is used to keep track of the contents of the canvas.
@@ -17,17 +18,32 @@ import { emptyHistory, record, travel, canUndo as hasPast, canRedo as hasFuture 
 // the undo stack in methods/history.js, both pure and unit-tested. This file is
 // only the part that can't be: React state, the live ref mirror, and onChange.
 //
-// `controlledContent`, when defined, puts the hook in CONTROLLED mode (still
-// EXPERIMENTAL): the parent owns content and drives it by passing a new array;
-// the hook optimistically mirrors it. Left undefined, the hook is uncontrolled —
-// it owns content from `start`.
+// `controlledContent`, when defined, puts the hook in CONTROLLED mode: the
+// parent owns content, and the prop IS what renders — nothing is copied into
+// local state, so the board cannot drift from what the parent says. An edit
+// computes the next content and emits it; if the parent doesn't feed it back,
+// nothing moves. That's what makes a read-only board, a filtered board, or an
+// edit the parent rejects work at all, and it's the same contract as a
+// controlled <input> (or React Flow's nodes/onNodesChange).
 //
-// `onChange(content)` fires on INTERNAL edits only (draws, drags, deletes, undo).
-// It is emitted from `apply`, the internal writer — never from the controlled
-// sync below — so mirroring the external prop in does NOT echo back out, and a
-// parent that clones content in its handler can't spin a feedback loop.
+// Left undefined, the hook is uncontrolled and owns content from `start`.
+// Switching between the two mid-life isn't supported.
+//
+// `onChange(content)` fires on INTERNAL edits only (draws, drags, deletes, undo),
+// from `apply` — never from the reconciliation below — so content arriving from
+// the parent doesn't echo back out and a parent that clones can't loop.
 export default function useContent(registry, start, controlledContent = undefined, onChange = undefined){
-  const [content, setContent] = useState(start)
+  const isControlled = controlledContent !== undefined
+
+  // The uncontrolled backing store. Never read while controlled.
+  const [ownContent, setOwnContent] = useState(start)
+
+  // In controlled mode the prop is the state. This is the whole of "controlled":
+  // there is no second copy that could disagree with the parent.
+  const content = isControlled ? controlledContent : ownContent
+
+  // Selection is always the hook's own, in both modes — it's view state, not
+  // document state, and a parent driving content shouldn't have to carry it.
   const [selectedElements, setSelectedElements] = useState([])
 
   // Latest-ref for onChange so an inline callback doesn't need to be stable.
@@ -37,7 +53,22 @@ export default function useContent(registry, start, controlledContent = undefine
   // Mirror of both states, written synchronously by `apply`. Mutations compute
   // the next state from this rather than from the render closure, so several
   // writes landing in one tick each see the previous one's result.
+  //
+  // In controlled mode the mirror runs OPTIMISTICALLY ahead of the parent for
+  // exactly that reason — and the reconciliation effect below pulls it back to
+  // the prop at the end of every render, which is how a declined edit is undone.
   const live = useRef({ content: start, selection: [] })
+
+  // The last content handed to onChange, and the last prop value reconciled.
+  // Together they tell an accepted edit from a veto from an outright external
+  // replacement (see isExternalReplacement).
+  const emitted = useRef(null)
+  const synced = useRef(controlledContent)
+
+  // Bumped by `apply` in controlled mode purely to guarantee a render. Without
+  // it, a parent that declines an edit changes no state anywhere and React never
+  // re-renders — so the effect that rolls the mirror back would never run.
+  const [syncTick, setSyncTick] = useState(0)
 
   // Nothing renders from the stacks, so they live in a ref — but whether
   // undo/redo is AVAILABLE is rendered (menus, command `enabled`), so that part
@@ -52,36 +83,53 @@ export default function useContent(registry, start, controlledContent = undefine
 
   const getElement = (uuid) => content.find(el => el.uuid === uuid);
 
-  // The single writer for internal edits — keeps the mirror and both states in
+  // The single writer for internal edits — keeps the mirror and the states in
   // step, and notifies the consumer when CONTENT changed (a selection-only apply
   // keeps the same content reference, so it doesn't fire onChange).
+  //
+  // Controlled mode differs in one line: it does NOT write content to state,
+  // because the prop is the state. It emits, and the parent decides.
   const apply = (next) => {
     const contentChanged = next.content !== live.current.content
     live.current = next
-    setContent(next.content)
     setSelectedElements(next.selection)
-    if (contentChanged) onChangeRef.current?.(next.content)
+
+    if (!contentChanged) return
+
+    emitted.current = next.content
+    if (isControlled) setSyncTick(t => t + 1)
+    else setOwnContent(next.content)
+    onChangeRef.current?.(next.content)
   }
 
-  // CONTROLLED sync: when the external content prop changes to a new array,
-  // mirror it in. Reference-guarded, so the parent feeding our own content back
-  // (same array) is a no-op — pass it back as-is. This does NOT go through
-  // `apply`: an external replacement is not an internal edit, so it emits no
-  // onChange (nothing to echo) and records no undo point. It DOES reset undo
-  // history, since the pre-replacement timeline belongs to content the parent
-  // has discarded (external replacement is the history-ownership policy in
-  // controlled mode).
+  // CONTROLLED reconciliation. Runs after every render that could have moved
+  // what the parent is showing us, and leaves the mirror agreeing with the prop.
+  //
+  // This is the one place a declined edit is rolled back: `apply` let the mirror
+  // run ahead so writes in the same tick could chain off each other, and here the
+  // parent's actual answer overrides it. Deliberately does NOT go through
+  // `apply` — content arriving from the parent is not an internal edit, so it
+  // emits no onChange and records no undo point.
   useEffect(() => {
-    if (controlledContent === undefined || controlledContent === live.current.content) return
+    if (!isControlled) return
 
-    const next = ops.adoptContent(live.current, controlledContent)
-    live.current = next
-    setContent(next.content)
-    setSelectedElements(next.selection)
-    history.current = emptyHistory()
-    setCanUndo(false)
-    setCanRedo(false)
-  }, [controlledContent])
+    // An external replacement discards the content the undo stack describes.
+    // An accepted edit or a veto does not — see isExternalReplacement.
+    if (isExternalReplacement(content, synced.current, emitted.current)) {
+      history.current = emptyHistory()
+      setCanUndo(false)
+      setCanRedo(false)
+    }
+    synced.current = content
+
+    // Adopt the prop and drop any selection it no longer contains. Trimming only
+    // ever shortens, so a length change is enough to detect it.
+    const before = live.current
+    live.current = ops.adoptContent(before, content)
+    if (live.current.selection.length !== before.selection.length) {
+      setSelectedElements(live.current.selection)
+    }
+  }, [content, syncTick, isControlled])
 
   const syncHistoryFlags = () => {
     setCanUndo(hasPast(history.current))

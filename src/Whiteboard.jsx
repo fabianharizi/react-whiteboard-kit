@@ -35,9 +35,13 @@ const NO_ELEMENTS = [];
 //   defaultContent   initial elements for UNCONTROLLED use: the canvas owns its
 //                    content state; `onChange` reports every change back out.
 //   content          CONTROLLED use: pass this (with onChange) and the parent owns
-//                    content — drive it by setting the prop, pass it back as-is in
-//                    onChange. When present it wins over defaultContent.
-//   onChange(content) called whenever content changes (not on mount).
+//                    content — the prop is what renders, so the canvas only moves
+//                    when the parent feeds an edit back. Declining one, filtering
+//                    it, or ignoring it entirely (a read-only board) all work by
+//                    doing nothing. When present it wins over defaultContent.
+//   onChange(content) called whenever content changes (not on mount). In
+//                    controlled use this is the ONLY way the canvas changes:
+//                    store what it hands you, or don't, and that's the answer.
 //   elements         custom element definitions (from defineElement), added to
 //                    the built-ins for THIS instance's registry only — two
 //                    whiteboards can carry different type sets. Pass a STABLE
@@ -86,7 +90,7 @@ export default function Whiteboard({ defaultContent = [], content, onChange, ele
   const [pointerSession] = useState(createPointerSession);
   // Controlled when `content` is passed, else uncontrolled from defaultContent.
   // `onChange` fires from useContent on internal edits only (never on the
-  // controlled sync), so external changes don't echo back.
+  // controlled reconciliation), so external changes don't echo back.
   const {content: liveContent, selectedElements, getElement, addElements, selectElements, updateElements, deleteElements, undo, redo, canUndo, canRedo} = useContent(registry, content ?? defaultContent, content, onChange);
   const {camera, panBy, zoomTo, toWorld} = useCamera(boardRef);
   const {preview, enablePreview, disablePreview} = usePreview();

@@ -199,3 +199,35 @@ describe("adoptContent", () => {
     expect(ops.adoptContent(stateOf([rect("a")], ["a"]), []).selection).toEqual([])
   })
 })
+
+// Controlled mode has to tell three things apart from one prop value, and only
+// one of them should cost the user their undo history.
+describe("isExternalReplacement", () => {
+  const A = [rect("a")]
+  const B = [rect("b")]
+  const C = [rect("c")]
+
+  it("is an external replacement when the parent sets content of its own", () => {
+    expect(ops.isExternalReplacement(C, A, B)).toBe(true)
+  })
+
+  // The parent applied the edit we emitted — same timeline, one step on.
+  it("is not a replacement when the parent accepts what we emitted", () => {
+    expect(ops.isExternalReplacement(B, A, B)).toBe(false)
+  })
+
+  // The prop never moved: either nothing happened, or the parent DECLINED the
+  // edit. Rolling the board back is right; wiping its history is not.
+  it("is not a replacement when the prop didn't move", () => {
+    expect(ops.isExternalReplacement(A, A, B)).toBe(false)
+  })
+
+  it("treats the very first content as external only if it isn't ours", () => {
+    expect(ops.isExternalReplacement(A, undefined, null)).toBe(true)
+    expect(ops.isExternalReplacement(A, A, null)).toBe(false)
+  })
+
+  it("compares by identity, not contents — an equal-looking clone is a replacement", () => {
+    expect(ops.isExternalReplacement([rect("a")], A, A)).toBe(true)
+  })
+})

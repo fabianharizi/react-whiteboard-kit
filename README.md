@@ -4,7 +4,7 @@ A whiteboard **engine** for React — the canvas machinery you'd otherwise spend
 
 Infinite pannable/zoomable canvas, multi-select with group transforms, connector lines that stay glued to the shapes they join, a properties panel, undo/redo that groups a drag into one step, and a command registry that keyboard shortcuts, buttons and menus all bind to. Written from scratch in React — no canvas library underneath.
 
-> **Status: pre-alpha, not yet packaged.** It mounts as a `<Whiteboard>` component today — with `defaultContent`/`onChange` and custom element types — but isn't published to npm yet, and nothing here is API-stable. See [Roadmap](#roadmap).
+> **Status: pre-alpha, not yet packaged.** It mounts as a `<Whiteboard>` component today — controlled or uncontrolled, with custom element types — but isn't published to npm yet, and nothing here is API-stable. See [Roadmap](#roadmap).
 
 ---
 
@@ -41,10 +41,10 @@ React 19 + Vite. No state library, no router, CSS Modules. The guiding rule: **U
 
 - **`useCamera`** — owns `{ x, y, zoom }`. The Board is a clipping viewport div containing a world div with `transform: translate(pan) scale(zoom)`. Elements are stored in world coordinates and render untouched. `toWorld(screenX, screenY)` is the single conversion; drag deltas divide by zoom.
 - **`usePointer`** — the event bridge: Pointer Events with capture, drag slop, and gesture ownership, so callbacks only fire for gestures that began on their own element.
-- **`useContent`** — elements plus selection, behind one internal writer with a live ref mirror so several writes in a tick each see the previous one's result. All operations are **plural-only** — a single element is a one-element array. Selection is a uuid list and the only source of truth; elements carry no `selected` flag, which is why a history snapshot can just be content.
+- **`useContent`** — elements plus selection, behind one internal writer with a live ref mirror so several writes in a tick each see the previous one's result. The undo stack (`methods/history.js`) and the state transitions (`methods/contentState.js`) are pure modules under unit test; the hook is what's left — React state, the mirror, and `onChange`. All operations are **plural-only** — a single element is a one-element array. Selection is a uuid list and the only source of truth; elements carry no `selected` flag, which is why a history snapshot can just be content.
 - **`useCommands`** — the command registry above.
 - **Tools** are hooks composing `usePointer`, all mounted unconditionally and gated by an `active` boolean.
-- **`elements/`** — the element-type registry. Each type is a `defineElement({ type, render, geometry, schema, defaults, bindable, tool, connector })` module, and the built-ins register through the same call a consumer will. Rendering, the property schema, geometry, connector behavior, the toolbar, tool activation and create-defaults all dispatch through it — no engine code switches on element type. A box-shaped type positions by spreading the engine-computed `boxFrame` (it never touches coordinates or the `data-uuid` hit-testing hook); lines and ink self-position, since their box is the rendered route. Adding a type is adding a definition.
+- **`elements/`** — the element-type registry. Each type is a `defineElement({ type, render, geometry, schema, defaults, bindable, tool, preview, connector })` module, and the built-ins register through the same call a consumer will. Rendering, the property schema, geometry, connector behavior, the toolbar, tool activation and create-defaults all dispatch through it — no engine code switches on element type. A box-shaped type positions by spreading the engine-computed `boxFrame` (it never touches coordinates or the `data-uuid` hit-testing hook); lines and ink self-position, since their box is the rendered route. Adding a type is adding a definition.
 - **`createRegistry` + `RegistryContext`** — the registry is a value, not a global: `createRegistry(definitions)` bundles every type-aware operation onto one object, and each `<Whiteboard>` builds its own from the built-ins plus the consumer's `elements`. Child components read it via `useRegistry()`; the hooks and pure helpers that can't read context take it as an argument. Two whiteboards on a page can carry different type sets without leaking into each other.
 
 ## Usage
@@ -76,7 +76,16 @@ function App() {
 }
 ```
 
-Uncontrolled by default (`defaultContent` + `onChange`). Pass `content` for controlled use — **experimental**: the canvas optimistically mirrors the prop (it doesn't wait for the parent to confirm an edit), `onChange` fires on internal edits only (external replacements don't echo), an external replacement resets undo history, and switching between controlled and uncontrolled mid-life isn't supported. `theme` overrides `--wb-*` design tokens (`accent`, `surface`, `grid`, `panel-bg`, `panel-fg`) that cascade to the panels and canvas — or set the same variables via `style`/CSS. Keyboard shortcuts are scoped to the focused instance, so several whiteboards coexist on one page.
+Uncontrolled by default (`defaultContent` + `onChange`). Pass `content` for **controlled** use, which works the way a controlled `<input>` does: the prop is what renders, so the canvas only moves when you feed an edit back through `onChange`. Ignoring an edit, filtering it, or dropping it entirely — a read-only board — all work by simply not storing it. `onChange` fires on internal edits only, so content you pass in never echoes back out; replacing content from outside resets undo history, since the stack describes a document you discarded. Switching between controlled and uncontrolled mid-life isn't supported.
+
+```jsx
+const [content, setContent] = useState([]);
+
+// Reject anything that would exceed a budget — the canvas simply won't move.
+<Whiteboard content={content} onChange={(next) => next.length <= 50 && setContent(next)} />
+```
+
+`theme` overrides `--wb-*` design tokens (`accent`, `surface`, `grid`, `panel-bg`, `panel-fg`) that cascade to the panels and canvas — or set the same variables via `style`/CSS. Keyboard shortcuts are scoped to the focused instance, so several whiteboards coexist on one page.
 
 ## Running locally
 
@@ -100,7 +109,7 @@ Toward an engine other people can build on:
 - [x] Command registry, shortcuts, context menu
 - [x] Pluggable geometry kinds + freehand pen, with a unit-test suite over the geometry
 - [x] **Element-type registry** — every type is a `defineElement({...})` module in `src/elements`, registered through the same call a consumer will use, so the built-ins dogfood the extension API. Rendering, the property schema (including inline, element-supplied fields), geometry, connector bindability and behavior, the toolbar, tool activation and create-defaults all dispatch through the definitions. What still checks `type` is UI-specific, not behavior dispatch: the lone-connector endpoint chrome and text edit-activation (both selection/interaction concerns). The `sticky` note is a worked example of a custom type — component, definition, toolbar tool and all — added with no engine edits.
-- [x] **`<Whiteboard>` API** — a `<Whiteboard defaultContent content onChange elements theme>` component. Uncontrolled (`defaultContent`) or controlled (`content`, *experimental* — optimistic mirror, see Usage), with an `onChange` readout; custom element types through `elements` (dogfooded by the `sticky` example, registered this way, not built in); re-branding through `theme` / `--wb-*` CSS tokens. Each instance owns an isolated registry via `createRegistry` + `RegistryContext`.
+- [x] **`<Whiteboard>` API** — a `<Whiteboard defaultContent content onChange elements theme>` component. Uncontrolled (`defaultContent`) or fully controlled (`content` is what renders, so an edit only lands if you feed it back — see Usage), with an `onChange` readout; custom element types through `elements` (dogfooded by the `sticky` example, registered this way, not built in); re-branding through `theme` / `--wb-*` CSS tokens. Each instance owns an isolated registry via `createRegistry` + `RegistryContext`.
 - [x] **Embeddability** — styles are scoped inside `Whiteboard.module.css` (no global `*`/`body` rules); the root is container-relative (`100%`/`100%`, fills its parent) rather than `100vw`/`100vh`; and the keyboard-shortcut listener is scoped to the focused instance's root, so several whiteboards coexist on one page without sharing key handling.
 - [ ] **Packaging** — Vite library mode, exports map, React as a peer dependency, a license
 - [ ] Z-order operations and grouping
@@ -114,4 +123,5 @@ Toward an engine other people can build on:
 - Elbow routes have no obstacle avoidance.
 - Group resize scales a text element's box, not its font size.
 - No persistence — reloading clears the canvas.
-- Tests cover the geometry and math modules only; nothing exercises the React components.
+- In controlled mode, an edit the parent declines still costs an undo step: history records before the edit is emitted, so a rejected edit leaves a step that undoes to the content already on screen. Undo stays correct for a parent that accepts edits (the normal case) — a partially vetoing parent just gets the occasional no-op `Ctrl+Z`.
+- Tests cover the pure modules — geometry, the element registry, history and content transitions — plus `Preview` and `Properties` through static rendering. The React wiring itself (hooks, pointer gestures, camera) is hand-verified.
