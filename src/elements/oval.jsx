@@ -2,6 +2,7 @@ import { Circle } from "lucide-react"
 import Shape from "../components/Shape/Shape"
 import defineElement from "./defineElement"
 import { boxFrame } from "./frame"
+import { GHOST } from "./preview"
 
 // An oval. Identical to rectangle but for its `type` (which Shape renders with
 // border-radius: 100%) and the absence of a corner-radius field.
@@ -26,6 +27,8 @@ export default defineElement({
   },
 
   schema: ["position", "size", "rotation", "fill", "strokeColor", "strokeWidth", "strokeStyle", "opacity"],
+
+  preview: { ...GHOST, fill: "transparent" },
 
   tool: { icon: Circle, shortcut: "o", create: "box" },
 })

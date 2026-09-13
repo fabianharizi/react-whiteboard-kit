@@ -13,10 +13,14 @@ import { boxFrame } from "./frame"
 //     INLINE field definitions (color, text) the panel never shipped with
 //   - defaults: the create-time properties
 //   - bindable: connector endpoints may attach to it
+//   - preview: deliberately ABSENT — with no ghost override the drag preview is
+//     the note itself, rendered from `defaults`. That WYSIWYG fallback is the
+//     whole point of the preview facet: a custom type gets a drag ghost without
+//     the engine knowing it exists.
 //
-// Today it registers by being added to the DEFINITIONS list; once the public
-// <Whiteboard elements={[...]}> API lands, a consumer passes exactly this object
-// and examples like it move out of the core list.
+// It is registered through <Whiteboard elements={[sticky]}> in App.jsx, exactly
+// as a third party would — no entry in BUILTIN_ELEMENTS, and no engine file
+// mentions it. Deleting this file and that prop removes it cleanly.
 
 export default defineElement({
   type: "sticky",

@@ -1,6 +1,7 @@
 import { MoveUpRight } from "lucide-react"
 import Line from "../components/Line/Line"
 import defineElement from "./defineElement"
+import { GHOST } from "./preview"
 import { resolveLineEndpoints } from "../utils/methods/lineGeometry"
 
 // A connector line. SELF-POSITIONING: its rendered box is the route's bbox —
@@ -71,6 +72,10 @@ export default defineElement({
   },
 
   schema: ["start", "end", "routing", "strokeColor", "strokeWidth", "strokeStyle", "headStart", "headEnd"],
+
+  // Only the stroke needs overriding — heads and routing come from `defaults`,
+  // so the ghost already previews what the commit will draw.
+  preview: { ...GHOST },
 
   tool: { icon: MoveUpRight, shortcut: "l", create: "line" },
 })

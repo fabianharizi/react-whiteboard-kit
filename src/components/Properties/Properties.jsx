@@ -5,7 +5,6 @@ import {
   ChevronDown, Italic, Type,
 } from "lucide-react"
 import styles from "./Properties.module.css"
-import path from "../../utils/geometry/path"
 import { useRegistry } from "../../elements/RegistryContext"
 import { FONT_FAMILIES, WEIGHTS, fontStack } from "../../utils/methods/fonts"
 import {
@@ -26,79 +25,39 @@ import {
 // either of its fields bakes both coords and detaches that end — predictable,
 // instead of numbers that fight the resolver.
 
-// Mirrors the per-component defaults, so an absent property still shows a value.
-const DEFAULTS = {
-  fill: "#ffffff",
-  strokeColor: "#ffffff",
-  strokeWidth: 2,
-  strokeStyle: "solid",
-  borderRadius: 0,
-  opacity: 1,
-  rotation: 0,
-  content: "",
-  horizontal: "left",
-  vertical: "top",
-  fontFamily: "DM Sans",
-  fontSize: 16,
-  fontWeight: "400",
-  fontStyle: "normal",
-  routing: "straight",
-  headStart: "none",
-  headEnd: "arrow",
-}
-
 const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0)
+
+// Last-resort value for a control whose property has no stored value and whose
+// definition declared no default. Only reachable for a partially specified
+// custom type — but an undefined `value` makes React switch the input to
+// uncontrolled mid-life, so it's worth a net.
+const EMPTY = { number: 0, range: 0, textarea: "", select: "" }
 
 // Field types whose row can't be a <label>: they hold several controls, or
 // buttons rather than a labelable input.
 const MULTI_CONTROL = new Set(["pair", "combo", "icons", "iconSelect"])
 
-// Elements that don't store two corners need their box derived and written back
-// differently. `position`/`size` are shared across every box-ish type, so the
-// branch lives here rather than in a per-type field — which is exactly the kind
-// of scattering the element-type registry is meant to remove. When that lands,
-// these should collapse into each type's own schema.
-// These position/size helpers are path-specific (a path stores `points`, not two
-// corners), so they use the path geometry kind directly rather than the registry
-// dispatch — the math is the same whatever type set this instance carries.
-const isPath = (p) => Array.isArray(p.points)
-const pathBounds = (p) => path.bounds(p)
-
-// Move a path so its bounding box's `edge` (left/top) lands on `v`.
-const movePathTo = (p, edge, v) => {
-  const b = pathBounds(p)
-  const d = v - b[edge]
-  return path.translate(p, edge === "left" ? d : 0, edge === "left" ? 0 : d)
-}
-
-// Scale a path so its bounding box takes on `v` along one axis, anchored at its
-// top-left — the same corner `size` anchors a box at.
-const scalePathTo = (p, axis, v) => {
-  const b = pathBounds(p)
-  const next = axis === "width"
-    ? { ...b, right: b.left + v }
-    : { ...b, bottom: b.top + v }
-  return path.mapIntoBox(p, b, next)
-}
-
-// A "pair" field renders two number inputs on one row. Each part derives its value
-// from the stored corners (`get`) and returns the corner patch to write (`set`),
-// so `position`/`size` stay a single conceptual property in the schema.
+// A "pair" field renders two number inputs on one row. Each part derives its
+// value (`get`) and returns the properties patch to write (`set`), so
+// `position`/`size` stay a single conceptual property in the schema.
+//
+// Both take the element's GEOMETRY KIND as their last argument and go through
+// its contract — `bounds` to read the box, `translate`/`mapIntoBox` to write it.
+// That's the whole reason position/size can be shared fields: a box stores two
+// corners and a path stores a point list, but both kinds answer "where is your
+// box" and "put your box here". This used to sniff `Array.isArray(p.points)` to
+// tell them apart, which silently gave any third kind the box branch.
 const FIELDS = {
   position: {
     label: "Position",
     type: "pair",
     parts: [
       { key: "x", prefix: "X",
-        get: (p) => Math.round(isPath(p) ? pathBounds(p).left : Math.min(num(p.startX), num(p.endX))),
-        set: (p, v) => isPath(p)
-          ? movePathTo(p, "left", v)
-          : ({ startX: v, endX: v + Math.abs(num(p.endX) - num(p.startX)) }) },
+        get: (p, g) => Math.round(g.bounds(p).left),
+        set: (p, v, g) => g.translate(p, v - g.bounds(p).left, 0) },
       { key: "y", prefix: "Y",
-        get: (p) => Math.round(isPath(p) ? pathBounds(p).top : Math.min(num(p.startY), num(p.endY))),
-        set: (p, v) => isPath(p)
-          ? movePathTo(p, "top", v)
-          : ({ startY: v, endY: v + Math.abs(num(p.endY) - num(p.startY)) }) },
+        get: (p, g) => Math.round(g.bounds(p).top),
+        set: (p, v, g) => g.translate(p, 0, v - g.bounds(p).top) },
     ],
   },
 
@@ -106,23 +65,18 @@ const FIELDS = {
     label: "Size",
     type: "pair",
     parts: [
+      // Anchored at the box's top-left, like a resize from the opposite handle.
       { key: "width", prefix: "W", min: 0,
-        get: (p) => Math.round(isPath(p)
-          ? pathBounds(p).right - pathBounds(p).left
-          : Math.abs(num(p.endX) - num(p.startX))),
-        set: (p, v) => {
-          if (isPath(p)) return scalePathTo(p, "width", v)
-          const x = Math.min(num(p.startX), num(p.endX))
-          return { startX: x, endX: x + v }
+        get: (p, g) => Math.round(g.bounds(p).right - g.bounds(p).left),
+        set: (p, v, g) => {
+          const b = g.bounds(p)
+          return g.mapIntoBox(p, b, { ...b, right: b.left + v })
         } },
       { key: "height", prefix: "H", min: 0,
-        get: (p) => Math.round(isPath(p)
-          ? pathBounds(p).bottom - pathBounds(p).top
-          : Math.abs(num(p.endY) - num(p.startY))),
-        set: (p, v) => {
-          if (isPath(p)) return scalePathTo(p, "height", v)
-          const y = Math.min(num(p.startY), num(p.endY))
-          return { startY: y, endY: y + v }
+        get: (p, g) => Math.round(g.bounds(p).bottom - g.bounds(p).top),
+        set: (p, v, g) => {
+          const b = g.bounds(p)
+          return g.mapIntoBox(p, b, { ...b, bottom: b.top + v })
         } },
     ],
   },
@@ -173,7 +127,7 @@ const FIELDS = {
     label: "Weight", type: "select", options: WEIGHTS,
     optionStyle: (weight, properties) => ({
       fontWeight: weight,
-      fontFamily: fontStack(properties.fontFamily ?? DEFAULTS.fontFamily),
+      fontFamily: fontStack(properties.fontFamily),
     }),
   },
   fontStyle: {
@@ -412,7 +366,7 @@ function resolveField(entry) {
     : { name: entry.key, field: entry }
 }
 
-function Field({ entry, properties, onPatch }) {
+function Field({ entry, properties, defaults, geometry, onPatch }) {
   const { name, field } = resolveField(entry)
 
   // Composite row: render the named sub-fields side by side. Recurses, so a
@@ -421,13 +375,14 @@ function Field({ entry, properties, onPatch }) {
     return (
       <div className={styles.combo}>
         {field.fields.map((sub) => (
-          <Field key={resolveField(sub).name} entry={sub} properties={properties} onPatch={onPatch} />
+          <Field key={resolveField(sub).name} entry={sub} properties={properties}
+                 defaults={defaults} geometry={geometry} onPatch={onPatch} />
         ))}
       </div>
     )
   }
 
-  // Pair fields own their own read/write per part.
+  // Pair fields own their own read/write per part, through the geometry kind.
   if (field.type === "pair") {
     return (
       <div className={styles.pair}>
@@ -438,8 +393,8 @@ function Field({ entry, properties, onPatch }) {
               min={part.min}
               max={part.max}
               step={part.step}
-              value={part.get(properties)}
-              onCommit={(n) => onPatch(part.set(properties, n))}
+              value={part.get(properties, geometry)}
+              onCommit={(n) => onPatch(part.set(properties, n, geometry))}
             />
           </div>
         ))}
@@ -447,9 +402,12 @@ function Field({ entry, properties, onPatch }) {
     )
   }
 
-  // Plain fields map 1:1 to a stored property. An inline field may carry its own
-  // `default`; the built-in catalog falls back to DEFAULTS.
-  const value = properties[name] ?? field.default ?? DEFAULTS[name]
+  // Plain fields map 1:1 to a stored property. Absent, the value falls back to
+  // an inline field's own `default`, then to the element definition's create
+  // defaults — the same values the element was made with, so the panel can't
+  // display a default the type doesn't actually use (which is exactly what a
+  // second table here used to do).
+  const value = properties[name] ?? field.default ?? defaults[name] ?? EMPTY[field.type]
   const onChange = (v) => onPatch({ [name]: v })
 
   switch (field.type) {
@@ -533,6 +491,10 @@ export default function Properties({ selectedElements, getElement, updateElement
   if (!element) return null
 
   const fields = registry.schemaOf(element.type)
+  // Both from the definition: the values an absent property falls back to, and
+  // the kind that answers position/size for this element's coordinate shape.
+  const defaults = registry.definitionOf(element.type)?.defaults ?? {}
+  const geometry = registry.geometryOf(element)
 
   return (
     <aside className={styles.properties}>
@@ -556,6 +518,8 @@ export default function Properties({ selectedElements, getElement, updateElement
               <Field
                 entry={entry}
                 properties={element.properties}
+                defaults={defaults}
+                geometry={geometry}
                 onPatch={(patch) => updateElements([{ uuid: element.uuid, properties: patch }])}
               />
             </Row>

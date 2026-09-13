@@ -18,7 +18,10 @@ export default function useTextTool(registry, ref, active, toWorld, enablePrevie
     onMove: (p) => {
       if(!p.hasDragged) return;
       const cur = toWorld(p.x, p.y)
-      enablePreview("rectangle", start.current.x, start.current.y, cur.x, cur.y)
+      // Preview under this tool's OWN type: the text definition decides what its
+      // ghost looks like (a dashed box), rather than this tool borrowing another
+      // type's name to get the look it wanted.
+      enablePreview("text", start.current.x, start.current.y, cur.x, cur.y)
     },
     onUp: (p) => {
       const cur = toWorld(p.x, p.y)

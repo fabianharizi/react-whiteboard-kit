@@ -38,8 +38,11 @@ export const FONT_FAMILIES = FONTS.map(f => f.family)
 // that silently falls back to a synthesized one.
 export const WEIGHTS = ["400", "500", "600", "700"]
 
-// Quoted family + category fallback, e.g. `"Lora", serif`.
+// Quoted family + category fallback, e.g. `"Lora", serif`. An absent family
+// yields the bare fallback rather than a quoted "undefined", so a text element
+// stored without one still renders.
 export const fontStack = (family) => {
+  if (!family) return "sans-serif"
   const font = FONTS.find(f => f.family === family)
   return font ? `"${font.family}", ${font.fallback}` : `"${family}", sans-serif`
 }

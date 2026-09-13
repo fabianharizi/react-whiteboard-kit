@@ -26,6 +26,13 @@
 //   tool       creation affordance: { icon, shortcut, create }. `create` names the
 //              drawing gesture ("box" | "text" | "line" | "pen") — the toolbar and
 //              App's tool-hook activation are both derived from it.
+//   preview    OPTIONAL. How this type looks as a drag ghost, in one of two forms:
+//              an OBJECT of property overrides merged over `defaults` and drawn by
+//              this type's own `render` (spread GHOST from ./preview to match the
+//              engine's ghost chrome), or a FUNCTION (el, ctx) => JSX with the same
+//              signature as `render`, when the ghost should draw something other
+//              than the element itself. Omit it and the ghost IS the element,
+//              rendered from `defaults` — WYSIWYG, and the right default.
 //   connector  OPTIONAL. For an element defined by its attachments (a line): the
 //              { refs, resolve, bake, rebind } the engine calls (as the registry
 //              methods built in createRegistry.js) to resolve endpoints and keep

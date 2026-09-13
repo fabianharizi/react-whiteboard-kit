@@ -1,7 +1,9 @@
 import { TypeIcon } from "lucide-react"
 import Text from "../components/Text/Text"
+import Shape from "../components/Shape/Shape"
 import defineElement from "./defineElement"
 import { boxFrame } from "./frame"
+import { GHOST } from "./preview"
 
 // Editable text. The hardest built-in to express as a definition — this is the
 // one that proves the contract. It carries the in-place edit session down as
@@ -37,6 +39,18 @@ export default defineElement({
   },
 
   schema: ["position", "size", "rotation", "fontFamily", "fontSize", "fontWeight", "fontStyle", "align", "content"],
+
+  // The one built-in whose ghost is NOT itself, so it uses the function form of
+  // the facet. What the user is dragging out is the text BOX; there is no typed
+  // content yet, and previewing the placeholder would draw a ghost the commit
+  // then throws away. A dashed rectangle shows the box being sized instead.
+  preview: (el) => (
+    <Shape
+      type="rectangle"
+      properties={{ ...GHOST, fill: "transparent" }}
+      frame={boxFrame(el.properties)}
+    />
+  ),
 
   tool: { icon: TypeIcon, shortcut: "t", create: "text" },
 })
