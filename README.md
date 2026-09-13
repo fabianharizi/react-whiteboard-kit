@@ -123,5 +123,4 @@ Toward an engine other people can build on:
 - Elbow routes have no obstacle avoidance.
 - Group resize scales a text element's box, not its font size.
 - No persistence — reloading clears the canvas.
-- In controlled mode, an edit the parent declines still costs an undo step: history records before the edit is emitted, so a rejected edit leaves a step that undoes to the content already on screen. Undo stays correct for a parent that accepts edits (the normal case) — a partially vetoing parent just gets the occasional no-op `Ctrl+Z`.
 - Tests cover the pure modules — geometry, the element registry, history and content transitions — plus `Preview` and `Properties` through static rendering. The React wiring itself (hooks, pointer gestures, camera) is hand-verified.

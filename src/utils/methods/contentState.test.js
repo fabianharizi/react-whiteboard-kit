@@ -200,34 +200,38 @@ describe("adoptContent", () => {
   })
 })
 
-// Controlled mode has to tell three things apart from one prop value, and only
-// one of them should cost the user their undo history.
-describe("isExternalReplacement", () => {
+// Controlled mode has to tell three things apart from one prop value, and each
+// one wants different handling of the undo stack.
+describe("classifyIncoming", () => {
   const A = [rect("a")]
   const B = [rect("b")]
   const C = [rect("c")]
 
-  it("is an external replacement when the parent sets content of its own", () => {
-    expect(ops.isExternalReplacement(C, A, B)).toBe(true)
+  it("is accepted when the parent feeds back exactly what we emitted", () => {
+    expect(ops.classifyIncoming(B, A, B)).toBe("accepted")
   })
 
-  // The parent applied the edit we emitted — same timeline, one step on.
-  it("is not a replacement when the parent accepts what we emitted", () => {
-    expect(ops.isExternalReplacement(B, A, B)).toBe(false)
+  it("is replaced when the parent sets content of its own", () => {
+    expect(ops.classifyIncoming(C, A, B)).toBe("replaced")
   })
 
-  // The prop never moved: either nothing happened, or the parent DECLINED the
+  // The prop never moved: either nothing happened, or the parent rejected the
   // edit. Rolling the board back is right; wiping its history is not.
-  it("is not a replacement when the prop didn't move", () => {
-    expect(ops.isExternalReplacement(A, A, B)).toBe(false)
+  it("is declined when the prop didn't move", () => {
+    expect(ops.classifyIncoming(A, A, B)).toBe("declined")
   })
 
-  it("treats the very first content as external only if it isn't ours", () => {
-    expect(ops.isExternalReplacement(A, undefined, null)).toBe(true)
-    expect(ops.isExternalReplacement(A, A, null)).toBe(false)
+  it("reads a quiet render with nothing emitted as declined, not replaced", () => {
+    expect(ops.classifyIncoming(A, A, null)).toBe("declined")
   })
 
-  it("compares by identity, not contents — an equal-looking clone is a replacement", () => {
-    expect(ops.isExternalReplacement([rect("a")], A, A)).toBe(true)
+  it("treats first content the parent chose as a replacement", () => {
+    expect(ops.classifyIncoming(A, undefined, null)).toBe("replaced")
+  })
+
+  // A parent that clones on the way through is replacing the document as far as
+  // the engine can tell — there is no identity left to recognise.
+  it("compares by identity, so an equal-looking clone is a replacement", () => {
+    expect(ops.classifyIncoming([rect("a")], A, A)).toBe("replaced")
   })
 })

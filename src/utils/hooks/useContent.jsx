@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as ops from "../methods/contentState";
-import { isExternalReplacement } from "../methods/contentState";
+import { classifyIncoming } from "../methods/contentState";
 import { emptyHistory, record, travel, canUndo as hasPast, canRedo as hasFuture } from "../methods/history";
 
 // This hook is used to keep track of the contents of the canvas.
@@ -61,9 +61,18 @@ export default function useContent(registry, start, controlledContent = undefine
 
   // The last content handed to onChange, and the last prop value reconciled.
   // Together they tell an accepted edit from a veto from an outright external
-  // replacement (see isExternalReplacement).
+  // replacement (see classifyIncoming).
   const emitted = useRef(null)
   const synced = useRef(controlledContent)
+
+  // The undo stack as it was BEFORE the edit currently awaiting the parent's
+  // answer. In controlled mode an edit is a proposal until the parent feeds it
+  // back, and that has to include its effect on history — otherwise a declined
+  // edit leaves a step behind that undoes to the content already on screen.
+  // `record` and `travel` are pure and return new stacks, so the old one is
+  // simply still here to put back. Only the first write of a batch saves, so a
+  // rejected batch rolls back to before the batch rather than to its last write.
+  const pendingHistory = useRef(null)
 
   // Bumped by `apply` in controlled mode purely to guarantee a render. Without
   // it, a parent that declines an edit changes no state anywhere and React never
@@ -102,6 +111,11 @@ export default function useContent(registry, start, controlledContent = undefine
     onChangeRef.current?.(next.content)
   }
 
+  const syncHistoryFlags = () => {
+    setCanUndo(hasPast(history.current))
+    setCanRedo(hasFuture(history.current))
+  }
+
   // CONTROLLED reconciliation. Runs after every render that could have moved
   // what the parent is showing us, and leaves the mirror agreeing with the prop.
   //
@@ -113,12 +127,31 @@ export default function useContent(registry, start, controlledContent = undefine
   useEffect(() => {
     if (!isControlled) return
 
-    // An external replacement discards the content the undo stack describes.
-    // An accepted edit or a veto does not — see isExternalReplacement.
-    if (isExternalReplacement(content, synced.current, emitted.current)) {
-      history.current = emptyHistory()
-      setCanUndo(false)
-      setCanRedo(false)
+    // What the parent did with the last thing we emitted decides what happens to
+    // the undo stack. Only "accepted" leaves it alone.
+    switch (classifyIncoming(content, synced.current, emitted.current)) {
+      case "replaced":
+        // The stack describes a document the parent has thrown away.
+        history.current = emptyHistory()
+        pendingHistory.current = null
+        setCanUndo(false)
+        setCanRedo(false)
+        break
+
+      case "declined":
+        // The edit never happened, so neither did its history entry. Without
+        // this, rejecting an edit left a step that undid to the content already
+        // on screen — a no-op Ctrl+Z — and a read-only board slowly filled its
+        // undo stack with them.
+        if (pendingHistory.current !== null) {
+          history.current = pendingHistory.current
+          pendingHistory.current = null
+          syncHistoryFlags()
+        }
+        break
+
+      default:
+        pendingHistory.current = null
     }
     synced.current = content
 
@@ -131,15 +164,18 @@ export default function useContent(registry, start, controlledContent = undefine
     }
   }, [content, syncTick, isControlled])
 
-  const syncHistoryFlags = () => {
-    setCanUndo(hasPast(history.current))
-    setCanRedo(hasFuture(history.current))
+  // Move the stack to `next`, remembering where it was so controlled mode can
+  // put it back if the parent declines the edit that caused the move. In
+  // uncontrolled mode there's nobody to decline, so it just commits.
+  const proposeHistory = (next) => {
+    if (isControlled && pendingHistory.current === null) pendingHistory.current = history.current
+    history.current = next
   }
 
   // A content edit: record an undo point, then apply. `key` identifies the
   // interaction for coalescing; null means "always its own step".
   const mutate = (key, next) => {
-    history.current = record(history.current, key, live.current, performance.now())
+    proposeHistory(record(history.current, key, live.current, performance.now()))
     apply(next)
     syncHistoryFlags()
   }
@@ -161,7 +197,7 @@ export default function useContent(registry, start, controlledContent = undefine
     const moved = travel(history.current, from, to, live.current)
     if (!moved) return
 
-    history.current = moved.history
+    proposeHistory(moved.history)
     apply(moved.state)
     syncHistoryFlags()
   }

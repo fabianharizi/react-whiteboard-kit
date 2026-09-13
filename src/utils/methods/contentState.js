@@ -94,18 +94,21 @@ export function adoptContent(state, content) {
   }
 }
 
-// Did the parent replace the document, as opposed to accepting our edit or
-// declining it? Three cases have to be told apart, and only the first should
-// cost the user their undo history:
+// What did the parent just do with content? Controlled mode has to tell three
+// things apart from one prop value, and each wants different handling:
 //
-//   incoming !== synced, !== emitted   the parent set content to something of
-//                                      its own — the timeline on the stack
-//                                      describes content it has discarded.
-//   incoming !== synced, === emitted   the parent accepted the edit we emitted.
-//                                      Same timeline, one step further along.
-//   incoming === synced                the prop didn't move at all: either
-//                                      nothing happened, or the parent DECLINED
-//                                      an edit. A veto shouldn't wipe history.
-export function isExternalReplacement(incoming, synced, emitted) {
-  return incoming !== synced && incoming !== emitted
+//   "accepted"  incoming === emitted — the parent fed our edit back. The
+//               timeline is intact, one step further along.
+//   "replaced"  the prop moved to something of the parent's own. The undo stack
+//               describes a document that no longer exists, so it resets.
+//   "declined"  the prop didn't move at all: either nothing happened, or the
+//               parent rejected the edit we emitted. Whatever that edit did to
+//               the stack has to be rolled back with it.
+//
+// Compared by IDENTITY, never by contents: a parent that clones content is
+// replacing the document as far as the engine can tell.
+export function classifyIncoming(incoming, synced, emitted) {
+  if (incoming === emitted) return "accepted"
+  if (incoming !== synced) return "replaced"
+  return "declined"
 }
