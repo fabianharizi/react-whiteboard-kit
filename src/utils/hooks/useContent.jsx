@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import * as ops from "../methods/contentState";
+import { emptyHistory, record, travel, canUndo as hasPast, canRedo as hasFuture } from "../methods/history";
 
 // This hook is used to keep track of the contents of the canvas.
 //
@@ -11,22 +13,10 @@ import { useEffect, useRef, useState } from "react";
 // history store plain content — a snapshot can't disagree with itself about what
 // was selected.
 //
-// UNDO/REDO. `past`/`future` hold whole {content, selection} snapshots. That is
-// cheap here because every mutation is an immutable map that replaces only the
-// elements it touches, so a snapshot is mostly an array of pointers to objects
-// that already exist (~1KB per entry on a 100-element board, and pushing one
-// costs ~0.2% of the update that produced it). What history does need is
-// GROUPING: updateElements fires on every pointermove of a drag and on every
-// keystroke while editing text, so writes that continue the same interaction
-// coalesce into a single undoable step.
-
-// Consecutive writes with the same coalescing key inside this window collapse
-// into one step, so a drag is one Ctrl+Z rather than sixty.
-const COALESCE_MS = 400
-
-// Undo depth. Bounded so a long session can't grow the heap without limit.
-const HISTORY_LIMIT = 100
-
+// WHAT'S LEFT HERE. The state transitions live in methods/contentState.js and
+// the undo stack in methods/history.js, both pure and unit-tested. This file is
+// only the part that can't be: React state, the live ref mirror, and onChange.
+//
 // `controlledContent`, when defined, puts the hook in CONTROLLED mode (still
 // EXPERIMENTAL): the parent owns content and drives it by passing a new array;
 // the hook optimistically mirrors it. Left undefined, the hook is uncontrolled —
@@ -49,10 +39,10 @@ export default function useContent(registry, start, controlledContent = undefine
   // writes landing in one tick each see the previous one's result.
   const live = useRef({ content: start, selection: [] })
 
-  // The stacks hold PRE-change snapshots; `key`/`at` drive coalescing. Nothing
-  // renders from the stacks, so they live in a ref — but whether undo/redo is
-  // available IS rendered (menus, command `enabled`), so that part is state.
-  const history = useRef({ past: [], future: [], key: null, at: 0 })
+  // Nothing renders from the stacks, so they live in a ref — but whether
+  // undo/redo is AVAILABLE is rendered (menus, command `enabled`), so that part
+  // is state.
+  const history = useRef(emptyHistory())
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
 
@@ -75,139 +65,61 @@ export default function useContent(registry, start, controlledContent = undefine
 
   // CONTROLLED sync: when the external content prop changes to a new array,
   // mirror it in. Reference-guarded, so the parent feeding our own content back
-  // (same array) is a no-op — pass it back as-is. Selection is trimmed to
-  // survivors. This does NOT go through `apply`: an external replacement is not
-  // an internal edit, so it emits no onChange (nothing to echo) and records no
-  // undo point. It DOES reset undo history, since the pre-replacement timeline
-  // belongs to content the parent has discarded (external replacement is the
-  // history-ownership policy in controlled mode).
+  // (same array) is a no-op — pass it back as-is. This does NOT go through
+  // `apply`: an external replacement is not an internal edit, so it emits no
+  // onChange (nothing to echo) and records no undo point. It DOES reset undo
+  // history, since the pre-replacement timeline belongs to content the parent
+  // has discarded (external replacement is the history-ownership policy in
+  // controlled mode).
   useEffect(() => {
     if (controlledContent === undefined || controlledContent === live.current.content) return
-    const known = new Set(controlledContent.map(el => el.uuid))
-    const next = { content: controlledContent, selection: live.current.selection.filter(id => known.has(id)) }
+
+    const next = ops.adoptContent(live.current, controlledContent)
     live.current = next
     setContent(next.content)
     setSelectedElements(next.selection)
-    history.current = { past: [], future: [], key: null, at: 0 }
+    history.current = emptyHistory()
     setCanUndo(false)
     setCanRedo(false)
   }, [controlledContent])
 
   const syncHistoryFlags = () => {
-    setCanUndo(history.current.past.length > 0)
-    setCanRedo(history.current.future.length > 0)
-  }
-
-  // Push the CURRENT state as the point undo returns to — unless this write
-  // continues the same interaction, in which case the entry already on the
-  // stack is that point and a second one would only fragment the step.
-  const record = (key) => {
-    const h = history.current
-    const now = performance.now()
-    const continues = key !== null && key === h.key && now - h.at < COALESCE_MS
-
-    h.key = key
-    h.at = now
-    if (continues) return
-
-    h.past.push(live.current)
-    if (h.past.length > HISTORY_LIMIT) h.past.shift()
-    h.future = []                 // editing after an undo forks the timeline
+    setCanUndo(hasPast(history.current))
+    setCanRedo(hasFuture(history.current))
   }
 
   // A content edit: record an undo point, then apply. `key` identifies the
   // interaction for coalescing; null means "always its own step".
   const mutate = (key, next) => {
-    record(key)
+    history.current = record(history.current, key, live.current, performance.now())
     apply(next)
     syncHistoryFlags()
   }
 
-  // Appends elements and selects exactly them — a draw or a paste becomes the
-  // active selection. Takes [{ type, uuid, properties }].
-  const addElements = (list) => {
-    const added = list.map(e => ({ type: e.type, uuid: e.uuid, properties: e.properties }))
-    mutate(null, {
-      content: [...live.current.content, ...added],
-      selection: added.map(e => e.uuid),
-    })
-  }
+  const addElements = (list) => mutate(null, ops.addElements(live.current, list))
 
-  // Selects exactly the given uuids (unknown ids are dropped). An empty or
-  // absent list deselects everything.
-  //
   // Deliberately NOT recorded: selecting isn't an edit, and spending undo steps
-  // on clicks would bury the edits the user actually wants back. Content keeps
-  // its identity here, so React skips re-rendering it.
-  const selectElements = (uuids) => {
-    const known = new Set(live.current.content.map(el => el.uuid))
-    apply({
-      content: live.current.content,
-      selection: (uuids ?? []).filter(id => known.has(id)),
-    })
-  }
+  // on clicks would bury the edits the user actually wants back.
+  const selectElements = (uuids) => apply(ops.selectElements(live.current, uuids))
 
-  // Merges per-element property patches in one state pass.
-  // Takes [{ uuid, properties }].
-  const updateElements = (patches) => {
-    const byId = new Map(patches.map(p => [p.uuid, p.properties]))
+  const updateElements = (patches) =>
+    mutate(ops.updateKey(patches), ops.updateElements(live.current, patches))
 
-    // Coalesce on which elements changed and which fields — both hold constant
-    // through a drag or a burst of typing, so the gesture is one step, while
-    // touching a different element or property starts a new one.
-    const key = "update:" + patches
-      .map(p => p.uuid + ">" + Object.keys(p.properties).sort().join(","))
-      .sort()
-      .join("|")
+  const deleteElements = (uuids) => mutate(null, ops.deleteElements(live.current, uuids, registry))
 
-    mutate(key, {
-      content: live.current.content.map(el => {
-        const patch = byId.get(el.uuid)
-        return patch ? { ...el, properties: { ...el.properties, ...patch } } : el
-      }),
-      selection: live.current.selection,
-    })
-  }
+  const clearContent = () => mutate(null, ops.clearContent())
 
-  // Deleting a connector's binding target BAKES the connector first: its resolved
-  // geometry (computed against the pre-delete content) is written into the raw
-  // coords and the dead binding is nulled, so it freezes in place instead of
-  // dangling or snapping to its stale fallback. bakeOnDelete leaves every
-  // non-connector — and every connector not bound to a doomed target — untouched.
-  const deleteElements = (uuids) => {
-    const doomed = new Set(uuids)
-    const prev = live.current.content
-    const lookup = (uuid) => prev.find(el => el.uuid === uuid)
+  const travelTo = (from, to) => {
+    const moved = travel(history.current, from, to, live.current)
+    if (!moved) return
 
-    mutate(null, {
-      content: prev
-        .filter(el => !doomed.has(el.uuid))
-        .map(el => registry.bakeOnDelete(el, doomed, lookup)),
-      selection: live.current.selection.filter(id => !doomed.has(id)),
-    })
-  }
-
-  const clearContent = () => {
-    mutate(null, { content: [], selection: [] })
-  }
-
-  // Move one step along the timeline: pop the source stack, push what we're
-  // leaving onto the other. Neither records (these ARE the history) and both
-  // clear the coalescing key, so the next edit opens a fresh step instead of
-  // merging into the restored one.
-  const travel = (from, to) => {
-    const h = history.current
-    if (!h[from].length) return
-
-    const entry = h[from].pop()
-    h[to].push(live.current)
-    h.key = null
-    apply(entry)
+    history.current = moved.history
+    apply(moved.state)
     syncHistoryFlags()
   }
 
-  const undo = () => travel("past", "future")
-  const redo = () => travel("future", "past")
+  const undo = () => travelTo("past", "future")
+  const redo = () => travelTo("future", "past")
 
   return {
     "content": content,
