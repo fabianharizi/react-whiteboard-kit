@@ -10,6 +10,11 @@ import sticky from './elements/sticky'
 // dogfooded. DEMO_CONTENT seeds one so it shows on load; you can also draw more
 // with the sticky tool (N). Both the seed and the sticky registration are safe
 // to delete.
+// Module scope, not an inline `elements={[sticky]}`: the prop is a dependency of
+// the instance registry, so a fresh array each render would rebuild it every
+// frame. This is the pattern a consumer should copy — hoist it, or useMemo it.
+const ELEMENTS = [sticky];
+
 const DEMO_CONTENT = [
   {
     type: "sticky",
@@ -25,7 +30,7 @@ const DEMO_CONTENT = [
 export default function App(){
   return (
     <div className="host">
-      <Whiteboard defaultContent={DEMO_CONTENT} elements={[sticky]} />
+      <Whiteboard defaultContent={DEMO_CONTENT} elements={ELEMENTS} />
     </div>
   )
 }

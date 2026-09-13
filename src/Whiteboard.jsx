@@ -23,6 +23,12 @@ import { bindTargetAt } from './utils/methods/hitTest';
 
 const SELECTION_TOOLS = ['select', 'move'];
 
+// The default for `elements`, hoisted to module scope on purpose. As an inline
+// `elements = []` default it would be a NEW array on every render, so the
+// registry useMemo below would miss every time and rebuild — for the common case
+// of a whiteboard with no custom types at all.
+const NO_ELEMENTS = [];
+
 // The embeddable whiteboard — the engine's public entry point.
 //
 //   defaultContent   initial elements for UNCONTROLLED use: the canvas owns its
@@ -33,7 +39,11 @@ const SELECTION_TOOLS = ['select', 'move'];
 //   onChange(content) called whenever content changes (not on mount).
 //   elements         custom element definitions (from defineElement), added to
 //                    the built-ins for THIS instance's registry only — two
-//                    whiteboards can carry different type sets.
+//                    whiteboards can carry different type sets. Pass a STABLE
+//                    array: a module constant, or useMemo. It's a dependency like
+//                    any other, and an inline `[myType]` literal is a new array
+//                    every render, which rebuilds the registry (and changes the
+//                    context value under every panel) on every frame of a drag.
 //   theme            optional token overrides, e.g. { accent: "#e11", surface:
 //                    "#0b0b12" }. Each key maps to the `--wb-<key>` CSS variable
 //                    on the root (a full `--wb-…` key is passed through as-is);
@@ -55,15 +65,15 @@ function themeVars(theme) {
   return out;
 }
 
-export default function Whiteboard({ defaultContent = [], content, onChange, elements = [], theme, className, style }) {
+export default function Whiteboard({ defaultContent = [], content, onChange, elements = NO_ELEMENTS, theme, className, style }) {
   const boardRef = useRef(null);
   // The focusable instance root. Keyboard shortcuts attach here (not window), so
   // two whiteboards on a page don't share key handling — only the focused one
   // responds. A canvas pointerdown focuses it (below).
   const rootRef = useRef(null);
 
-  // Built-ins + the consumer's custom types, rebuilt only when the custom set
-  // changes.
+  // Built-ins + the consumer's custom types. Rebuilt only when `elements` changes
+  // IDENTITY — see the prop note above on keeping it stable.
   const registry = useMemo(() => createRegistry([...BUILTIN_ELEMENTS, ...elements]), [elements]);
 
   const [activeTool, setActiveTool] = useState("select");

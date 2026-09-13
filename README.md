@@ -55,6 +55,11 @@ import { Whiteboard, defineElement } from "react-whiteboard-kit"; // (packaging 
 // A custom element type — a plain component plus a definition, no engine edits.
 const sticky = defineElement({ type: "sticky", render: /* ... */, geometry: "box", /* ... */ });
 
+// Hoisted, not inline: `elements` is a dependency of the instance registry, so a
+// new array each render would rebuild it every frame. A module constant or
+// useMemo — the same rule as any React dependency.
+const ELEMENTS = [sticky];
+
 function App() {
   return (
     // Fills its positioned parent. Uncontrolled: it owns content; onChange reports out.
@@ -62,7 +67,7 @@ function App() {
     <div style={{ width: "100vw", height: "100vh" }}>
       <Whiteboard
         defaultContent={[]}
-        elements={[sticky]}
+        elements={ELEMENTS}
         onChange={(content) => console.log(content.length, "elements")}
         theme={{ accent: "#e11d48", surface: "#0b0b12" }}   // re-brand via CSS tokens
       />
